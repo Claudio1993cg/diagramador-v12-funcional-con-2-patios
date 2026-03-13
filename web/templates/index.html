@@ -223,6 +223,9 @@
                     <i class="fas fa-user"></i> {{ current_user.username if current_user else '' }}
                     {% if is_admin %}<strong style="color:#3FA8FF;">(Administrador)</strong>{% endif %}
                 </span>
+                <span style="background:#111827;border:1px solid #4a5568;border-radius:999px;padding:6px 12px;font-size:0.85em;">
+                    <i class="fas fa-code-branch"></i> v{{ app_version or 'n/a' }}
+                </span>
                 <button type="button" class="btn btn-warning" style="padding:6px 12px;font-size:0.82em;" onclick="cerrarSesion()">
                     <i class="fas fa-sign-out-alt"></i> Cerrar sesión
                 </button>

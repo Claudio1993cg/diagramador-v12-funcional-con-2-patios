@@ -152,6 +152,7 @@ if os.path.isdir(_dir_app) and _dir_app != os.getcwd():
 # Inicializar Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("DIAGRAMADOR_WEB_SECRET", "diagramador_web_secret_dev_2026")
+APP_VERSION = os.environ.get("DIAGRAMADOR_APP_VERSION", "2026.03.13.2")
 
 # Rutas canónicas: TODO en diagramador_optimizado/ (misma carpeta que config)
 # - configuracion.json: carga/guardado desde la web
@@ -277,7 +278,7 @@ def _is_api_request() -> bool:
 
 @app.before_request
 def _require_auth():
-    public_paths = {"/login", "/favicon.ico"}
+    public_paths = {"/login", "/favicon.ico", "/healthz", "/api/version"}
     if request.path in public_paths or request.path.startswith("/static/"):
         return None
     if _get_current_user() is not None:
@@ -423,7 +424,12 @@ def login():
 
 @app.route("/healthz", methods=["GET"])
 def healthz():
-    return jsonify({"ok": True, "service": "diagramador-web"}), 200
+    return jsonify({"ok": True, "service": "diagramador-web", "version": APP_VERSION}), 200
+
+
+@app.route("/api/version", methods=["GET"])
+def api_version():
+    return jsonify({"success": True, "version": APP_VERSION}), 200
 
 
 @app.route("/logout", methods=["POST", "GET"])
@@ -584,6 +590,7 @@ def index():
             config=config,
             conexiones=conexiones,
             timestamp=timestamp,
+            app_version=APP_VERSION,
             tipos_bus_codigos=tipos_bus_codigos,
             lineas_disponibles=lineas_disponibles,
             nodos_para_relevo=nodos_para_relevo,
