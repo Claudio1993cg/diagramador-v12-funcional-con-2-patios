@@ -783,25 +783,27 @@ class ExcelConfigService:
         ws8.column_dimensions["A"].width = 18
         ws8.column_dimensions["B"].width = 45
 
-        # Hoja 8b: Grupos de Líneas
+        # Hoja 8b: Grupos de Líneas (incluye límite de jornada por grupo)
         ws8b = wb.create_sheet("GruposLineas")
-        ws8b.append(["Grupo", "Linea"])
+        ws8b.append(["Grupo", "Linea", "LimiteJornadaMin"])
         grupos_lineas = config.get("grupos_lineas", {}) or {}
+        limites_grupo = config.get("limite_jornada_por_grupo_linea", {}) or {}
+        limite_global = int(config.get("limite_jornada", 720) or 720)
         for nombre_grupo, lineas in sorted(grupos_lineas.items()):
             for linea in (lineas or []):
-                ws8b.append([nombre_grupo, linea])
+                ws8b.append([nombre_grupo, linea, int(limites_grupo.get(nombre_grupo, limite_global))])
         for cell in ws8b[1]:
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center")
         ws8b.column_dimensions["A"].width = 26
         ws8b.column_dimensions["B"].width = 22
+        ws8b.column_dimensions["C"].width = 20
 
-        # Hoja 8d: Límites de jornada por grupo de línea
+        # Hoja 8d (compatibilidad): Límites de jornada por grupo de línea.
+        # Se mantiene por compatibilidad con versiones anteriores.
         ws8d = wb.create_sheet("JornadaPorGrupo")
         ws8d.append(["Grupo", "LimiteJornadaMin"])
-        limites_grupo = config.get("limite_jornada_por_grupo_linea", {}) or {}
-        limite_global = int(config.get("limite_jornada", 720) or 720)
         for nombre_grupo, lineas in sorted(grupos_lineas.items()):
             ws8d.append([nombre_grupo, int(limites_grupo.get(nombre_grupo, limite_global))])
         for cell in ws8d[1]:
@@ -868,7 +870,7 @@ class ExcelConfigService:
             ["TiposBus", "Parámetros por tipo (incluye eléctricos)", "Definición técnica de cada flota", "Calcular consumo, recarga y elegibilidad", "Parámetros eléctricos impactan autonomía y necesidad de recarga."],
             ["Lineas", "Tipos Permitidos", "Compatibilidad línea-tipo de bus", "Evitar asignaciones no válidas", "Reglas más estrictas reducen opciones de asignación."],
             ["GruposLineas", "Grupo/Linea", "Agrupación para interlineado", "Permitir mezcla solo dentro de grupo", "Grupos más cerrados restringen reutilización y unión."],
-            ["JornadaPorGrupo", "Grupo/LimiteJornadaMin", "Límite de jornada específico por grupo", "Aplicar reglas laborales distintas por operación", "Si no existe un grupo aquí, usa limite_jornada global."],
+            ["GruposLineas", "LimiteJornadaMin", "Límite de jornada específico por grupo", "Aplicar reglas laborales distintas por operación", "Si no se informa, usa limite_jornada global."],
             ["Fase3Union", "union_solo_por_deposito", "Unión de turnos solo vía depósito", "Aumentar robustez operacional de uniones", "En SI reduce uniones; en NO permite conexiones directas."],
             ["Fase3Union", "parada_larga_umbral_union", "Umbral de espera para unir turnos", "Evitar uniones con inactividad excesiva", "Más alto permite más uniones; más bajo las restringe."],
             ["Fase3Union", "parada_larga_excepcion_depot_min", "Excepción en depósito para parada larga", "Flexibilizar unión cuando espera es en depósito", "Más alto permite más casos especiales en depósito."],
@@ -1262,6 +1264,7 @@ class ExcelConfigService:
             if "GruposLineas" in wb.sheetnames:
                 ws = wb["GruposLineas"]
                 grupos: Dict[str, List[str]] = {}
+                limites_grupo_desde_grupos: Dict[str, int] = {}
                 max_row = getattr(ws, "max_row", None) or 500
                 for row in ws.iter_rows(min_row=2, max_row=max_row, values_only=True):
                     if not row:
@@ -1273,12 +1276,20 @@ class ExcelConfigService:
                     grupos.setdefault(grupo, [])
                     if linea not in grupos[grupo]:
                         grupos[grupo].append(linea)
+                    # Columna opcional (nuevo): LimiteJornadaMin
+                    if len(row) > 2 and row[2] is not None:
+                        try:
+                            limites_grupo_desde_grupos[grupo] = int(float(row[2]))
+                        except Exception:
+                            pass
                 nueva_config["grupos_lineas"] = {g: sorted(ls) for g, ls in grupos.items()}
+                if limites_grupo_desde_grupos:
+                    nueva_config["limite_jornada_por_grupo_linea"] = limites_grupo_desde_grupos
 
             # Leer límite jornada por grupo de línea
             if "JornadaPorGrupo" in wb.sheetnames:
                 ws = wb["JornadaPorGrupo"]
-                limites_grupo: Dict[str, int] = {}
+                limites_grupo = dict(nueva_config.get("limite_jornada_por_grupo_linea") or {})
                 max_row = getattr(ws, "max_row", None) or 500
                 for row in ws.iter_rows(min_row=2, max_row=max_row, values_only=True):
                     if not row:
