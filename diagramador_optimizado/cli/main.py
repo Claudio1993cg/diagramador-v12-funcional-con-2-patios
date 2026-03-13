@@ -141,10 +141,16 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
             fns_mismatch.append((c, _to_min(tc[c][4]), max(fns)))
 
     paradas_ec: List[Any] = []
+    parada_post_ins: List[Any] = []
+    parada_pre_fns: List[Any] = []
     for c, rows in por_c.items():
         for i in range(len(rows) - 1):
             if _norm(rows[i][0]) == "PARADA" and _norm(rows[i + 1][0]) == "PARADA":
                 paradas_ec.append((c, rows[i][3], rows[i][4], rows[i + 1][3], rows[i + 1][4]))
+            if _norm(rows[i][0]) == "INS" and _norm(rows[i + 1][0]) == "PARADA":
+                parada_post_ins.append((c, rows[i][4], rows[i + 1][3], rows[i + 1][4]))
+            if _norm(rows[i][0]) == "PARADA" and _norm(rows[i + 1][0]) == "FNS":
+                parada_pre_fns.append((c, rows[i][3], rows[i][4], rows[i + 1][3]))
 
     por_b: Dict[str, List[Tuple[Any, ...]]] = defaultdict(list)
     for r in ws_be.iter_rows(min_row=2, values_only=True):
@@ -152,10 +158,19 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
         if b:
             por_b[b].append(r)
     paradas_be: List[Any] = []
+    buses_inicio_fin_no_deposito: List[Any] = []
+    dep_canon = _canon_node(config.get("deposito", ""))
     for b, rows in por_b.items():
-        for i in range(len(rows) - 1):
-            if _norm(rows[i][1]) == "PARADA" and _norm(rows[i + 1][1]) == "PARADA":
-                paradas_be.append((b, rows[i][2], rows[i][4], rows[i + 1][2], rows[i + 1][4]))
+        rows_ord = sorted(rows, key=lambda rr: (_to_min(rr[2]), _to_min(rr[4])))
+        if rows_ord:
+            first = rows_ord[0]
+            last = rows_ord[-1]
+            # REGLA DURA: cada bus debe iniciar en depósito y terminar en depósito.
+            if _canon_node(first[3]) != dep_canon or _canon_node(last[5]) != dep_canon:
+                buses_inicio_fin_no_deposito.append((b, first[3], first[2], last[5], last[4]))
+        for i in range(len(rows_ord) - 1):
+            if _norm(rows_ord[i][1]) == "PARADA" and _norm(rows_ord[i + 1][1]) == "PARADA":
+                paradas_be.append((b, rows_ord[i][2], rows_ord[i][4], rows_ord[i + 1][2], rows_ord[i + 1][4]))
 
     violaciones = [
         ("solapes", solapes),
@@ -167,6 +182,9 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
         ("ins_mismatch_tc_ec", ins_mismatch),
         ("fns_mismatch_tc_ec", fns_mismatch),
         ("paradas_consecutivas_ec", paradas_ec),
+        ("parada_despues_ins", parada_post_ins),
+        ("parada_antes_fns", parada_pre_fns),
+        ("bus_inicio_fin_no_deposito", buses_inicio_fin_no_deposito),
         ("paradas_consecutivas_be", paradas_be),
     ]
     fallas = [(k, v) for k, v in violaciones if v]

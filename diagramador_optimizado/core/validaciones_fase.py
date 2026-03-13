@@ -331,7 +331,9 @@ def validar_eventos_sin_solapamiento_conductor_bus(eventos: List[Dict[str, Any]]
 
 def validar_vacios_con_duracion_valida(eventos: List[Dict[str, Any]]) -> None:
     """
-    REGLA DURA: un vacío entre nodos distintos debe tener duración > 0.
+    REGLA DURA:
+    - un vacío entre nodos distintos debe tener duración > 0.
+    - no se permite vacío entre el mismo nodo canónico (es ruido operativo).
     """
     invalidos: List[Tuple[str, str, int, int, Any, Any]] = []
     def _mismo_nodo_flexible(a: str, b: str) -> bool:
@@ -352,7 +354,19 @@ def validar_vacios_con_duracion_valida(eventos: List[Dict[str, Any]]) -> None:
         destino = str(ev.get("destino", "") or "").strip()
         ini = _to_min(ev.get("inicio", 0))
         fin = _to_min(ev.get("fin", 0))
-        if origen and destino and (not _mismo_nodo_flexible(origen, destino)) and fin <= ini:
+        mismo = origen and destino and _mismo_nodo_flexible(origen, destino)
+        conecta_deposito = ("DEPOSITO" in origen.upper()) or ("DEPOSITO" in destino.upper())
+        dur = fin - ini
+        if dur < 0:
+            dur += 1440
+        # Permitir vacío depósito<->terminal alias cuando tiene duración positiva:
+        # es conexión operativa válida aunque canónicamente coincidan.
+        if mismo and conecta_deposito and dur > 0:
+            continue
+        if mismo:
+            invalidos.append((origen, destino, ini, fin, ev.get("bus"), ev.get("conductor")))
+            continue
+        if origen and destino and (not mismo) and fin <= ini:
             invalidos.append((origen, destino, ini, fin, ev.get("bus"), ev.get("conductor")))
 
     if invalidos:
@@ -363,7 +377,7 @@ def validar_vacios_con_duracion_valida(eventos: List[Dict[str, Any]]) -> None:
         if len(invalidos) > 20:
             ejemplos += f"\n  ... y {len(invalidos)-20} más."
         raise ValueError(
-            "[EVENTOS - REGLA DURA] Se detectaron vacíos con duración inválida (0 o negativa) "
-            "entre nodos distintos.\n"
+            "[EVENTOS - REGLA DURA] Se detectaron vacíos inválidos "
+            "(mismo nodo canónico o duración 0/negativa entre nodos distintos).\n"
             + ejemplos
         )

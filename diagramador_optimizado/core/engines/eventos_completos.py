@@ -626,6 +626,46 @@ def construir_eventos_completos(
         if e.get("conductor"): eventos_con_conductor[e["conductor"]].append(e)
 
     def get_canonical(nodo): return (gestor.nodo_canonico_para_conectividad(nodo) or "").strip().upper()
+
+    # Regla operativa: EventosCompletos solo puede usar "Vacio" si ese vacío
+    # existe en la traza de Fase 1 para el mismo bus.
+    vacios_fase1_por_bus: Dict[str, List[Tuple[int, int, str, str]]] = collections.defaultdict(list)
+    for ev in eventos_base_bus_puro:
+        if str(ev.get("evento", "")).strip().upper() != "VACIO":
+            continue
+        bus_v = ev.get("bus")
+        if bus_v in (None, "", 0, "0"):
+            continue
+        bus_key = str(bus_v).strip()
+        vacios_fase1_por_bus[bus_key].append(
+            (
+                int(ev.get("_ini", 0) or 0),
+                int(ev.get("_fin", 0) or 0),
+                get_canonical(ev.get("origen", "")),
+                get_canonical(ev.get("destino", "")),
+            )
+        )
+
+    def _vacio_existe_en_fase1(bus_id: Any, ini_min: int, fin_min: int, origen: str, destino: str) -> bool:
+        if bus_id in (None, "", 0, "0"):
+            return False
+        bus_key = str(bus_id).strip()
+        candidatos = vacios_fase1_por_bus.get(bus_key, [])
+        if not candidatos:
+            return False
+        o_can = get_canonical(origen)
+        d_can = get_canonical(destino)
+        ini = int(ini_min)
+        fin = int(fin_min)
+        # Tolerancia mínima de 1 minuto para absorber redondeos de borde.
+        tol = 1
+        for ini_b, fin_b, o_b, d_b in candidatos:
+            if o_b != o_can or d_b != d_can:
+                continue
+            if abs(ini_b - ini) <= tol and abs(fin_b - fin) <= tol:
+                return True
+        return False
+
     eventos_casi_finales = []
     for cid, lista in eventos_con_conductor.items():
         turno_ref = None
@@ -740,6 +780,14 @@ def construir_eventos_completos(
                 duracion = int(fin_min) - int(ini_min)
                 if duracion < 0:
                     duracion += 1440
+                if get_canonical(origen) == get_canonical(destino):
+                    origen_txt = str(origen or "").strip().upper()
+                    destino_txt = str(destino or "").strip().upper()
+                    conecta_deposito = ("DEPOSITO" in origen_txt) or ("DEPOSITO" in destino_txt)
+                    # Permitir conectores depósito<->alias con duración positiva
+                    # (son operativos y evitan huecos InS->primer comercial).
+                    if not (conecta_deposito and duracion > 0):
+                        return
 
                 # En el inicio de jornada (InS -> primer evento), el traslado inicial
                 # es del conductor y se modela como Desplazamiento.
@@ -762,17 +810,24 @@ def construir_eventos_completos(
                         return
                     if hay_bus and not hay_cambio_bus:
                         bus_conector = bus_prev or bus_next
-                        linea_tiempo.append(_crear_evento_base_dict("Vacio", bus_conector, cid_seg, ini_min, fin_min, origen, destino, desc=desc))
+                        if _vacio_existe_en_fase1(bus_conector, ini_min, fin_min, origen, destino):
+                            linea_tiempo.append(_crear_evento_base_dict("Vacio", bus_conector, cid_seg, ini_min, fin_min, origen, destino, desc=desc))
+                        else:
+                            linea_tiempo.append(_crear_evento_base_dict("Desplazamiento", "", cid_seg, ini_min, fin_min, origen, destino, desc=desc))
                     else:
                         linea_tiempo.append(_crear_evento_base_dict("Desplazamiento", "", cid_seg, ini_min, fin_min, origen, destino, desc=desc))
                     return
 
                 # REGLA OPERATIVA:
-                # - Si es el mismo bus, el conector es Vacio (nunca Desplazamiento).
+                # - Si es el mismo bus, usar Vacio solo si existe en Fase 1;
+                #   si no, usar Desplazamiento (sin bus).
                 # - Si no hay duración efectiva, no se inventa conector.
                 if hay_bus and not hay_cambio_bus and duracion > 0:
                     bus_conector = bus_prev or bus_next
-                    linea_tiempo.append(_crear_evento_base_dict("Vacio", bus_conector, cid_seg, ini_min, fin_min, origen, destino, desc=desc))
+                    if _vacio_existe_en_fase1(bus_conector, ini_min, fin_min, origen, destino):
+                        linea_tiempo.append(_crear_evento_base_dict("Vacio", bus_conector, cid_seg, ini_min, fin_min, origen, destino, desc=desc))
+                    else:
+                        linea_tiempo.append(_crear_evento_base_dict("Desplazamiento", "", cid_seg, ini_min, fin_min, origen, destino, desc=desc))
                 elif hay_bus and not hay_cambio_bus:
                     # Mismo bus y sin duración útil: no agregar nada.
                     return
@@ -789,12 +844,25 @@ def construir_eventos_completos(
                 if not seg:
                     continue
 
+            # Regla: no permitir Parada pegada al inicio/fin de jornada.
+            while seg and str(seg[0].get("evento", "")).strip().upper() == "PARADA":
+                seg.pop(0)
+            while seg and str(seg[-1].get("evento", "")).strip().upper() == "PARADA":
+                seg.pop()
+            if not seg:
+                continue
+
             linea_tiempo = []
             primer_ev = seg[0]
             
             if turno_ini_ref >= 0:
                 ins_ini = turno_ini_ref
-                ins_fin = min(primer_ev["_ini"], turno_ini_ref + t_toma)
+                if es_deposito(primer_ev['origen'], deposito):
+                    # Regla: no crear Parada inmediatamente después de InS.
+                    # Si el primer evento parte en depósito, extender InS hasta ese primer evento.
+                    ins_fin = primer_ev["_ini"]
+                else:
+                    ins_fin = min(primer_ev["_ini"], turno_ini_ref + t_toma)
                 if ins_fin < ins_ini:
                     ins_fin = ins_ini
                 linea_tiempo.append(
@@ -802,10 +870,6 @@ def construir_eventos_completos(
                 )
                 if not es_deposito(primer_ev['origen'], deposito):
                     _agregar_conector(None, primer_ev, ins_fin, primer_ev['_ini'], deposito, primer_ev['origen'], desc=f"A {primer_ev['origen']}")
-                elif primer_ev["_ini"] > ins_fin:
-                    linea_tiempo.append(
-                        _crear_evento_base_dict("Parada", "", cid_seg, ins_fin, primer_ev["_ini"], deposito, deposito, desc="Espera")
-                    )
             elif es_deposito(primer_ev['origen'], deposito):
                 ini_jornada = primer_ev['_ini']
                 linea_tiempo.append(_crear_evento_base_dict("InS", "", cid_seg, max(0, ini_jornada - t_toma), ini_jornada, deposito, deposito, desc="Inicio Jornada"))
@@ -834,46 +898,59 @@ def construir_eventos_completos(
                                 linea_tiempo.append(_crear_evento_base_dict("Parada", "", cid_seg, prev['_fin'], ev['_ini'], prev['destino'], prev['destino'], desc="Espera"))
                         else:
                             t = obtener_tiempo_traslado(prev['destino'], ev['origen'], prev['_fin'], gestor)
-                            if t == 0: t = gap 
-                            if t > gap: t = gap 
-                            if gap > t: linea_tiempo.append(_crear_evento_base_dict("Parada", "", cid_seg, prev['_fin'], ev['_ini'] - t, prev['destino'], prev['destino'], desc="Espera"))
-                            _agregar_conector(prev, ev, ev['_ini'] - t, ev['_ini'], prev['destino'], ev['origen'], desc=f"A {ev['origen']}")
+                            if t > 0 and gap >= t:
+                                if gap > t:
+                                    linea_tiempo.append(_crear_evento_base_dict("Parada", "", cid_seg, prev['_fin'], ev['_ini'] - t, prev['destino'], prev['destino'], desc="Espera"))
+                                _agregar_conector(prev, ev, ev['_ini'] - t, ev['_ini'], prev['destino'], ev['origen'], desc=f"A {ev['origen']}")
+                            else:
+                                # Sin traslado válido configurado entre nodos distintos:
+                                # no inventar duración. Se deja el hueco como parada.
+                                linea_tiempo.append(_crear_evento_base_dict("Parada", "", cid_seg, prev['_fin'], ev['_ini'], prev['destino'], prev['destino'], desc="Espera"))
                     elif gap == 0 and o_can != d_can:
                         _agregar_conector(prev, ev, ev['_ini'], ev['_ini'], prev['destino'], ev['origen'], desc=f"A {ev['origen']}")
-                tipo_ev_i = str(ev.get("evento", "")).strip().upper()
-                # Regla operativa solicitada: al inicio de jornada del conductor,
-                # el primer traslado se modela como Desplazamiento (no Vacio).
-                if (
-                    i == 0
-                    and tipo_ev_i == "VACIO"
-                    and linea_tiempo
-                    and str(linea_tiempo[-1].get("evento", "")).strip().upper() == "INS"
-                ):
-                    ev_inicio = dict(ev)
-                    ev_inicio["evento"] = "Desplazamiento"
-                    ev_inicio["bus"] = ""
-                    linea_tiempo.append(ev_inicio)
-                else:
-                    linea_tiempo.append(ev)
+                linea_tiempo.append(ev)
 
             ultimo_ev = seg[-1]
             if turno_fin_ref >= 0:
                 fin_jornada = turno_fin_ref
                 if not es_deposito(ultimo_ev['destino'], deposito):
-                    _agregar_conector(ultimo_ev, None, ultimo_ev['_fin'], fin_jornada, ultimo_ev['destino'], deposito, desc=f"A {deposito}")
-                elif ultimo_ev['_fin'] < fin_jornada:
-                    linea_tiempo.append(
-                        _crear_evento_base_dict(
-                            "Parada",
-                            "",
-                            cid_seg,
-                            ultimo_ev['_fin'],
-                            fin_jornada,
-                            deposito,
-                            deposito,
-                            desc="Espera",
-                        )
-                    )
+                    t_retorno = max(0, int(obtener_tiempo_traslado(ultimo_ev['destino'], deposito, ultimo_ev['_fin'], gestor) or 0))
+                    # Si la conectividad canónica devolvió 0 pero el texto de nodos difiere,
+                    # buscar tiempo configurado estricto (desplazamiento/vacío) para no perder
+                    # el conector operativo AGUIRRE LUCO -> Deposito Aguirre Luco (u otros alias).
+                    if t_retorno <= 0:
+                        dest_txt = str(ultimo_ev.get('destino', '') or '').strip().upper()
+                        dep_txt = str(deposito or '').strip().upper()
+                        if dest_txt and dep_txt and dest_txt != dep_txt:
+                            hab_alias, t_alias = _cached_buscar_info_desplazamiento(
+                                ultimo_ev['destino'],
+                                deposito,
+                                ultimo_ev['_fin'],
+                                gestor,
+                            )
+                            if hab_alias and t_alias is not None and int(t_alias) > 0:
+                                t_retorno = int(t_alias)
+                            else:
+                                t_vac_alias, _ = _cached_buscar_tiempo_vacio(
+                                    ultimo_ev['destino'],
+                                    deposito,
+                                    ultimo_ev['_fin'],
+                                    gestor,
+                                )
+                                if t_vac_alias is not None and int(t_vac_alias) > 0:
+                                    t_retorno = int(t_vac_alias)
+                    fin_con_retorno = ultimo_ev['_fin'] + t_retorno
+                    if t_retorno > 0:
+                        _agregar_conector(ultimo_ev, None, ultimo_ev['_fin'], fin_con_retorno, ultimo_ev['destino'], deposito, desc=f"A {deposito}")
+                    else:
+                        _agregar_conector(ultimo_ev, None, ultimo_ev['_fin'], ultimo_ev['_fin'], ultimo_ev['destino'], deposito, desc=f"A {deposito} (sin ruta configurada)")
+                    # Si no hay traslado efectivo (0), no forzar espera hasta turno_fin_ref.
+                    # Evita huecos Comercial->FnS por alias de depósito.
+                    fin_jornada = fin_con_retorno if t_retorno == 0 else max(fin_jornada, fin_con_retorno)
+                else:
+                    # Regla: no crear Parada inmediatamente antes de FnS.
+                    # Si el último evento ya termina en depósito, FnS cierra al fin real.
+                    fin_jornada = ultimo_ev['_fin']
                 linea_tiempo.append(
                     _crear_evento_base_dict(
                         "FnS",
@@ -933,6 +1010,24 @@ def construir_eventos_completos(
                             desc="Fin Jornada",
                         )
                     )
+            # Ajuste fino para no exceder límite de jornada sin truncar conectores configurados:
+            # si hay exceso pequeño, se recorta primero desde el inicio de InS (tiempo de toma).
+            if linea_tiempo:
+                min_ini_seg = min(int(e.get("_ini", 0) or 0) for e in linea_tiempo)
+                max_fin_seg = max(int(e.get("_fin", 0) or 0) for e in linea_tiempo)
+                dur_seg = duracion_minutos(min_ini_seg, max_fin_seg)
+                if dur_seg > limite_jornada_conductor:
+                    exceso = dur_seg - limite_jornada_conductor
+                    for e in linea_tiempo:
+                        if str(e.get("evento", "")).strip().upper() == "INS":
+                            ins_ini = int(e.get("_ini", 0) or 0)
+                            ins_fin = int(e.get("_fin", 0) or 0)
+                            disponible = max(0, ins_fin - ins_ini)
+                            mover = min(exceso, disponible)
+                            if mover > 0:
+                                e["_ini"] = ins_ini + mover
+                                exceso -= mover
+                            break
             eventos_casi_finales.extend(linea_tiempo)
 
     validar_comerciales_todos_asignados(eventos_base)

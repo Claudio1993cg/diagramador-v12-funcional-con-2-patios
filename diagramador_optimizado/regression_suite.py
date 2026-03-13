@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from openpyxl import load_workbook
+
 from diagramador_optimizado.cli.main import _auditar_excel_resultado, main as run_pipeline
 from diagramador_optimizado.core.domain.logistica import GestorDeLogistica
 from diagramador_optimizado.core.engines.fase1_buses import resolver_diagramacion_buses
@@ -161,6 +163,81 @@ def _run_structural_checks(config: Dict[str, Any], excel_path: Path) -> Tuple[in
     return len(turnos_f2), len(turnos_f3), pending
 
 
+def _to_min(value: Any) -> int:
+    s = str(value or "").strip()
+    if ":" in s:
+        h, m = s.split(":")
+        return int(h) * 60 + int(m)
+    try:
+        return int(float(s))
+    except Exception:
+        return 0
+
+
+def _dur(ini: Any, fin: Any) -> int:
+    d = _to_min(fin) - _to_min(ini)
+    if d < 0:
+        d += 1440
+    return d
+
+
+def _audit_connectividad_tiempos(config: Dict[str, Any], out_path: Path) -> None:
+    """
+    Reglas duras de conectividad:
+    - Todo VACIO debe usar el tiempo configurado de vacíos (BusEventos + EventosCompletos).
+    - Todo DESPLAZAMIENTO debe usar el tiempo configurado de desplazamientos si existe;
+      si no existe conexión, solo se permite duración 0.
+    """
+    gestor = GestorDeLogistica(config)
+    wb = load_workbook(out_path, data_only=True)
+    ws_be = wb["BusEventos"]
+    ws_ec = wb["EventosCompletos"]
+
+    be_bad: List[Any] = []
+    ec_v_bad: List[Any] = []
+    ec_d_bad: List[Any] = []
+
+    # BusEventos: [Tipo, Inicio, De, Fin, A]
+    for r in ws_be.iter_rows(min_row=2, values_only=True):
+        tipo = str(r[1] or "").strip().upper()
+        if tipo != "VACIO":
+            continue
+        ini, fin = r[2], r[4]
+        origen, destino = r[3], r[5]
+        real = _dur(ini, fin)
+        exp, _ = gestor.buscar_tiempo_vacio(str(origen or ""), str(destino or ""), _to_min(ini))
+        if exp is None or real != int(exp):
+            be_bad.append((origen, destino, ini, fin, real, exp))
+
+    # EventosCompletos: [Tipo, Bus, Conductor, Inicio, Fin, Origen, Destino]
+    for r in ws_ec.iter_rows(min_row=2, values_only=True):
+        tipo = str(r[0] or "").strip().upper()
+        ini, fin = r[3], r[4]
+        origen, destino = r[6], r[7]
+        real = _dur(ini, fin)
+        if tipo == "VACIO":
+            exp, _ = gestor.buscar_tiempo_vacio(str(origen or ""), str(destino or ""), _to_min(ini))
+            if exp is None or real != int(exp):
+                ec_v_bad.append((r[2], r[1], origen, destino, ini, fin, real, exp))
+        elif tipo == "DESPLAZAMIENTO":
+            hab, exp = gestor.buscar_info_desplazamiento(str(origen or ""), str(destino or ""), _to_min(ini))
+            if hab and exp is not None:
+                if real != int(exp):
+                    ec_d_bad.append((r[2], origen, destino, ini, fin, real, exp))
+            elif real != 0:
+                ec_d_bad.append((r[2], origen, destino, ini, fin, real, None))
+
+    if be_bad or ec_v_bad or ec_d_bad:
+        lines = ["[REGRESION - CONECTIVIDAD] Tiempos VACIO/DESPLAZAMIENTO inconsistentes."]
+        if be_bad:
+            lines.append(f"  - BusEventos VACIO: {len(be_bad)} (ej: {be_bad[:3]})")
+        if ec_v_bad:
+            lines.append(f"  - EventosCompletos VACIO: {len(ec_v_bad)} (ej: {ec_v_bad[:3]})")
+        if ec_d_bad:
+            lines.append(f"  - EventosCompletos DESPLAZAMIENTO: {len(ec_d_bad)} (ej: {ec_d_bad[:3]})")
+        raise RuntimeError("\n".join(lines))
+
+
 def run_suite(mode: str) -> int:
     root = Path(__file__).resolve().parent
     base_config_path = root / "configuracion.json"
@@ -192,6 +269,7 @@ def run_suite(mode: str) -> int:
             if not out_path.exists():
                 raise RuntimeError("No se generó archivo de salida.")
             _auditar_excel_resultado(str(out_path), scenario_cfg)
+            _audit_connectividad_tiempos(scenario_cfg, out_path)
             f2, f3, pending = _run_structural_checks(scenario_cfg, excel_path)
             if f3 > f2:
                 raise RuntimeError(f"Fase 3 aumentó turnos ({f2}->{f3}).")

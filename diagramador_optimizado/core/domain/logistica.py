@@ -458,6 +458,24 @@ class GestorDeLogistica:
         entrada = vacios.get(clave)
 
         if not isinstance(entrada, dict):
+            # 1) Buscar coincidencia EXACTA primero en todo el diccionario
+            # para evitar que una coincidencia "fuzzy" capture una ruta incorrecta
+            # (ej. AGUIRRE LUCO vs DEPOSITO AGUIRRE LUCO).
+            for clave_config, valor_config in vacios.items():
+                if not isinstance(valor_config, dict):
+                    continue
+                partes = clave_config.split("_", 1)
+                if len(partes) != 2:
+                    continue
+                origen_config = partes[0].strip().upper()
+                destino_config = partes[1].strip().upper()
+                if origen_config == origen_norm and destino_config == destino_norm:
+                    clave = clave_config
+                    entrada = valor_config
+                    break
+
+        if not isinstance(entrada, dict):
+            # 2) Recién si no hubo exacta, permitir coincidencia flexible.
             for clave_config, valor_config in vacios.items():
                 if not isinstance(valor_config, dict):
                     continue
@@ -465,17 +483,11 @@ class GestorDeLogistica:
                 if len(partes) == 2:
                     origen_config = partes[0].strip().upper()
                     destino_config = partes[1].strip().upper()
-                    o_n = origen_norm.upper()
-                    d_n = destino_norm.upper()
-                    if origen_config == o_n and destino_config == d_n:
-                        clave = clave_config
-                        entrada = valor_config
-                        break
                     # Incluir variantes (ej. LA PIRAMI = LA PIRAMIDE)
-                    o_ok = (origen_config == o_n or origen_config in o_n or o_n in origen_config or
-                            (len(o_n) >= 6 and len(origen_config) >= 6 and (o_n.startswith(origen_config) or origen_config.startswith(o_n))))
-                    d_ok = (destino_config == d_n or destino_config in d_n or d_n in destino_config or
-                            (len(d_n) >= 6 and len(destino_config) >= 6 and (d_n.startswith(destino_config) or destino_config.startswith(d_n))))
+                    o_ok = (origen_config in origen_norm or origen_norm in origen_config or
+                            (len(origen_norm) >= 6 and len(origen_config) >= 6 and (origen_norm.startswith(origen_config) or origen_config.startswith(origen_norm))))
+                    d_ok = (destino_config in destino_norm or destino_norm in destino_config or
+                            (len(destino_norm) >= 6 and len(destino_config) >= 6 and (destino_norm.startswith(destino_config) or destino_config.startswith(destino_norm))))
                     if o_ok and d_ok:
                         clave = clave_config
                         entrada = valor_config

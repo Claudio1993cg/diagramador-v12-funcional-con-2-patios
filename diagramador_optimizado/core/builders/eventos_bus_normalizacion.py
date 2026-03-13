@@ -11,13 +11,23 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 
-def _fusionar_paradas_consecutivas(eventos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _fusionar_paradas_consecutivas(eventos: List[Dict[str, Any]], gestor: Optional[Any] = None) -> List[Dict[str, Any]]:
     """
     Fusiona paradas consecutivas en el mismo nodo en un solo evento.
     Evita paradas duplicadas o continuas (varios eventos Parada seguidos en el mismo lugar).
     """
     if not eventos:
         return []
+    def _canon_nodo(nodo: Any) -> str:
+        txt = str(nodo or "").strip()
+        if not txt:
+            return ""
+        if gestor and hasattr(gestor, "nodo_canonico_para_conectividad"):
+            try:
+                return str(gestor.nodo_canonico_para_conectividad(txt) or "").strip().upper()
+            except Exception:
+                pass
+        return " ".join(txt.upper().replace("DEPOSITO", "").split())
     # Ordenar por inicio para procesar en orden cronológico
     ordenados = sorted(eventos, key=lambda e: (e.get("inicio", 0), e.get("fin", 0)))
     salida: List[Dict[str, Any]] = []
@@ -34,8 +44,12 @@ def _fusionar_paradas_consecutivas(eventos: List[Dict[str, Any]]) -> List[Dict[s
         ultimo = salida[-1]
         ultimo_orig = (ultimo.get("origen") or "").strip()
         ultimo_dest = (ultimo.get("destino") or "").strip()
+        mismo_nodo = (
+            _canon_nodo(origen) == _canon_nodo(ultimo_orig)
+            and _canon_nodo(destino) == _canon_nodo(ultimo_dest)
+        )
         # Misma ubicación y parada contigua (fin anterior == inicio actual, o solapamiento)
-        if (origen == ultimo_orig and destino == ultimo_dest and
+        if (mismo_nodo and
                 ev.get("inicio", 0) <= ultimo.get("fin", 0) + 1):  # +1 tolerancia redondeo
             # Fusionar: extender la parada anterior hasta el fin de la actual
             ultimo["fin"] = max(ultimo.get("fin", 0), ev.get("fin", ev.get("inicio", 0)))
@@ -56,8 +70,55 @@ def _normalizar_eventos_bus(eventos: List[Dict[str, Any]], verbose: bool = False
     if not eventos:
         return []
 
+    def _canon_nodo(nodo: Any) -> str:
+        txt = str(nodo or "").strip()
+        if not txt:
+            return ""
+        if gestor and hasattr(gestor, "nodo_canonico_para_conectividad"):
+            try:
+                return str(gestor.nodo_canonico_para_conectividad(txt) or "").strip().upper()
+            except Exception:
+                pass
+        return " ".join(txt.upper().replace("DEPOSITO", "").split())
+
+    # Limpieza dura de vacíos inconsistentes:
+    # - eliminar VACIO con duración <= 0
+    # - eliminar VACIO con origen/destino canónicamente iguales
+    # - eliminar duplicados de VACIO por misma clave temporal/espacial
+    eventos_filtrados: List[Dict[str, Any]] = []
+    vacios_vistos = set()
+    for ev in eventos:
+        tipo = str(ev.get("evento", "")).strip().upper()
+        if tipo != "VACIO":
+            eventos_filtrados.append(ev)
+            continue
+        ini = int(ev.get("inicio", 0) or 0)
+        fin = int(ev.get("fin", ini) or ini)
+        if fin <= ini:
+            continue
+        origen = ev.get("origen", "")
+        destino = ev.get("destino", "")
+        o_can = _canon_nodo(origen)
+        d_can = _canon_nodo(destino)
+        origen_txt = str(origen or "").strip().upper()
+        destino_txt = str(destino or "").strip().upper()
+        conecta_deposito = ("DEPOSITO" in origen_txt) or ("DEPOSITO" in destino_txt)
+        # Mantener vacíos depósito<->terminal aunque el canónico coincida (alias),
+        # siempre que tengan duración positiva (son conexiones operativas válidas).
+        if o_can and d_can and o_can == d_can and not (conecta_deposito and fin > ini):
+            continue
+        bus = str(ev.get("bus", "") or "").strip()
+        clave = (bus, ini, fin, o_can, d_can)
+        if clave in vacios_vistos:
+            continue
+        vacios_vistos.add(clave)
+        eventos_filtrados.append(ev)
+    eventos = eventos_filtrados
+    if not eventos:
+        return []
+
     # Primero fusionar paradas consecutivas para no tener eventos Parada duplicados o continuos
-    eventos = _fusionar_paradas_consecutivas(eventos)
+    eventos = _fusionar_paradas_consecutivas(eventos, gestor=gestor)
     if not eventos:
         return []
 
