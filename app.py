@@ -188,6 +188,39 @@ def _load_users() -> Dict[str, Dict[str, Any]]:
     return {}
 
 
+def _load_bootstrap_users_from_env() -> Dict[str, Dict[str, Any]]:
+    """
+    Carga usuarios bootstrap desde variable de entorno WEB_BOOTSTRAP_USERS_JSON.
+    Formato:
+    {
+      "usuario": {"password": "clave", "is_admin": true},
+      ...
+    }
+    """
+    raw = os.environ.get("WEB_BOOTSTRAP_USERS_JSON", "").strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            return {}
+        out: Dict[str, Dict[str, Any]] = {}
+        for username, info in data.items():
+            if not isinstance(info, dict):
+                continue
+            pwd = str(info.get("password", "")).strip()
+            if len(username.strip()) < 1 or len(pwd) < 1:
+                continue
+            out[str(username).strip()] = {
+                "password": pwd,
+                "is_admin": bool(info.get("is_admin", False)),
+            }
+        return out
+    except Exception as e:
+        logger.warning(f"WEB_BOOTSTRAP_USERS_JSON inválido: {e}")
+        return {}
+
+
 def _save_users(users: Dict[str, Dict[str, Any]]) -> None:
     os.makedirs(os.path.dirname(_users_path), exist_ok=True)
     with open(_users_path, "w", encoding="utf-8") as f:
@@ -201,6 +234,8 @@ def _ensure_default_users() -> None:
         "ccantero": {"password": "Juacko1993", "is_admin": True},
         "dlopez": {"password": "Lopez2803", "is_admin": False},
     }
+    env_defaults = _load_bootstrap_users_from_env()
+    defaults.update(env_defaults)
     for username, info in defaults.items():
         if username not in users:
             users[username] = {
@@ -249,7 +284,8 @@ def _require_auth():
         return None
     if _is_api_request():
         return jsonify({"success": False, "message": "No autorizado. Inicia sesión."}), 401
-    return redirect(url_for("login"))
+    # Evitar redirecciones para reducir errores intermitentes en edge.
+    return _render_login_page(), 200
 
 
 def _render_login_page(error_message: str = "") -> str:
@@ -383,6 +419,11 @@ def login():
         return _render_login_page("Usuario o contraseña inválidos."), 401
     session["username"] = username
     return redirect(url_for("index"))
+
+
+@app.route("/healthz", methods=["GET"])
+def healthz():
+    return jsonify({"ok": True, "service": "diagramador-web"}), 200
 
 
 @app.route("/logout", methods=["POST", "GET"])
