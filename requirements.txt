@@ -1,0 +1,8 @@
+streamlit
+flask
+werkzeug
+openpyxl
+pandas
+numpy
+networkx
+ortools

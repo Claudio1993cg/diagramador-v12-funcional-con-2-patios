@@ -1,0 +1,1888 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Diagramador - Configuración</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #272e38;
+            color: #e2e8f0;
+            font-size: 16px;
+            min-height: 100vh;
+        }
+        .container { width: 100%; min-height: 100vh; padding: 0; margin: 0; display: flex; flex-direction: column; }
+        .header { 
+            background: #1a202c;
+            padding: 15px 20px;
+            border-bottom: 2px solid #4a5568;
+            color: white;
+        }
+        .header h1 { font-size: 1.8em; margin: 0; color: white; }
+        .header p { font-size: 0.9em; opacity: 0.8; margin: 5px 0 0 0; color: #a0aec0; }
+        
+        .tabs { 
+            display: flex; 
+            background: #2d3748; 
+            border-bottom: 2px solid #4a5568; 
+            overflow-x: auto; 
+        }
+        .nav-tab { 
+            padding: 12px 20px; 
+            background: transparent; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 0.9em; 
+            transition: all 0.3s; 
+            color: #a0aec0;
+            border-bottom: 3px solid transparent;
+        }
+        .nav-tab:hover { background: #4a5568; color: white; }
+        .nav-tab.active { 
+            background: #2d3748; 
+            color: #3FA8FF; 
+            border-bottom-color: #3FA8FF;
+        }
+        
+        .tab-panel { 
+            display: none; 
+            background: #272e38; 
+            padding: 20px; 
+            min-height: calc(100vh - 140px);
+        }
+        .tab-panel.active { display: block; }
+        
+        .section { 
+            margin-bottom: 20px; 
+            padding: 20px;
+            background: #2d3748;
+            border-radius: 8px;
+            border: 1px solid #4a5568;
+        }
+        .section h2 { 
+            color: #3FA8FF; 
+            margin-bottom: 15px; 
+            font-size: 1.4em; 
+            border-bottom: 2px solid #4a5568; 
+            padding-bottom: 8px; 
+        }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { 
+            display: block; 
+            margin-bottom: 6px; 
+            font-weight: 600; 
+            color: #e2e8f0; 
+            font-size: 0.9em;
+        }
+        .form-group input, .form-group select, .form-group textarea { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #4a5568; 
+            border-radius: 6px; 
+            font-size: 0.9em; 
+            background: #1a202c;
+            color: #e2e8f0;
+            transition: all 0.3s; 
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { 
+            outline: none; 
+            border-color: #3FA8FF; 
+            box-shadow: 0 0 0 2px rgba(63, 168, 255, 0.2);
+        }
+        
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .tipo-bus-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .tipo-card { background: #1a202c; border: 1px solid #4a5568; padding: 15px; border-radius: 8px; }
+        .linea-card { background: #1a202c; border: 1px solid #4a5568; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .checkbox-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        .deposito-card {
+            background: #1f2733;
+            border: 1px solid #4a5568;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .deposito-card h4 { margin: 0; color: #3FA8FF; }
+        .deposito-actions { display: flex; gap: 10px; }
+        .deposito-actions .btn { padding: 6px 12px; font-size: 0.85em; }
+        
+        .btn { 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 0.9em; 
+            font-weight: 600; 
+            transition: all 0.3s; 
+            text-decoration: none; 
+            display: inline-block; 
+            text-align: center;
+        }
+        .btn-primary { background: #3FA8FF; color: #1a202c; }
+        .btn-primary:hover { background: #63b8ff; transform: translateY(-1px); }
+        .btn-success { background: #22c55e; color: white; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-warning { background: #f59e0b; color: #1a202c; }
+        .btn-warning:hover { background: #d97706; }
+        
+        .file-input-wrapper { position: relative; display: inline-block; width: 100%; }
+        .file-input { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+        .file-input-label {
+            display: block;
+            padding: 20px;
+            border: 2px dashed #4a5568;
+            border-radius: 8px;
+            text-align: center;
+            background: #2d3748;
+            color: #a0aec0;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .file-input-label:hover {
+            background: #4a5568;
+            border-color: #3FA8FF;
+            color: white;
+        }
+        
+        .notification { 
+            padding: 12px; 
+            border-radius: 6px; 
+            margin: 10px 0; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .notification.success { background: #22c55e; color: white; }
+        .notification.error { background: #ef4444; color: white; }
+        .notification.warning { background: #f59e0b; color: #1a202c; }
+        .notification.info { background: #3FA8FF; color: #1a202c; }
+        
+        .progress-container { 
+            background: #2d3748; 
+            border-radius: 8px; 
+            padding: 15px; 
+            margin: 15px 0; 
+            border: 1px solid #4a5568;
+        }
+        .progress-bar { 
+            background: #4a5568; 
+            border-radius: 8px; 
+            height: 16px; 
+            overflow: hidden; 
+        }
+        .progress-fill { 
+            background: linear-gradient(90deg, #22c55e, #16a34a); 
+            height: 100%; 
+            transition: width 0.3s; 
+        }
+        .progress-text { 
+            text-align: center; 
+            margin-top: 8px; 
+            font-weight: 600; 
+            color: #e2e8f0;
+            font-size: 0.9em;
+        }
+        
+        .franja-item {
+            background: #1a202c;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #4a5568;
+        }
+        .franja-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-wrapper input[type="checkbox"] {
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-bus"></i> Diagramador de Buses y Conductores</h1>
+            <p>Sistema de Configuración y Optimización</p>
+            <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <span style="background:#111827;border:1px solid #4a5568;border-radius:999px;padding:6px 12px;font-size:0.85em;">
+                    <i class="fas fa-user"></i> {{ current_user.username if current_user else '' }}
+                    {% if is_admin %}<strong style="color:#3FA8FF;">(Administrador)</strong>{% endif %}
+                </span>
+                <button type="button" class="btn btn-warning" style="padding:6px 12px;font-size:0.82em;" onclick="cerrarSesion()">
+                    <i class="fas fa-sign-out-alt"></i> Cerrar sesión
+                </button>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <button class="nav-tab active" onclick="showTab(event, 'cargar')">
+                <i class="fas fa-upload"></i> Cargar Excel
+            </button>
+            <button class="nav-tab" onclick="showTab(event, 'configuracion')">
+                <i class="fas fa-cogs"></i> Configuración
+            </button>
+            <button class="nav-tab" onclick="showTab(event, 'ejecutar')">
+                <i class="fas fa-play"></i> Ejecutar
+            </button>
+            <button class="nav-tab" onclick="showTab(event, 'ayuda')">
+                <i class="fas fa-book-open"></i> Ayuda
+            </button>
+            {% if is_admin %}
+            <button class="nav-tab" onclick="showTab(event, 'admin')">
+                <i class="fas fa-user-shield"></i> Admin Usuarios
+            </button>
+            {% endif %}
+        </div>
+        
+        <!-- Pestaña: Cargar Excel -->
+        <div id="cargar" class="tab-panel active">
+            <div class="section">
+                <h2><i class="fas fa-file-excel"></i> Cargar Archivo Excel</h2>
+                <p style="margin-bottom: 20px; color: #a0aec0; font-size: 0.9em;">
+                    <i class="fas fa-info-circle"></i> Puedes descargar un template Excel para completar con tus datos, 
+                    o cargar directamente un archivo Excel existente. La configuración existente se preservará automáticamente.
+                </p>
+                
+                <div style="margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-warning" onclick="descargarTemplateExcel()">
+                        <i class="fas fa-download"></i> Descargar Template Excel (Viajes)
+                    </button>
+                    <div style="flex: 1; min-width: 200px;">
+                        <p style="font-size: 0.85em; color: #a0aec0; margin: 0;">
+                            Template para cargar viajes comerciales (Linea, Sentido, Origen, Destino, Hora Inicio, Hora Fin, Kilometros)
+                        </p>
+                    </div>
+                </div>
+                
+                <form id="excel-form" enctype="multipart/form-data">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="archivo-excel" name="archivo" accept=".xlsx,.xls" class="file-input" onchange="procesarExcel()">
+                        <label for="archivo-excel" class="file-input-label">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 3em; margin-bottom: 10px;"></i>
+                            <div>Haz clic para seleccionar un archivo Excel</div>
+                            <div style="font-size: 0.8em; margin-top: 5px; opacity: 0.7;">Formatos soportados: .xlsx, .xls</div>
+                        </label>
+                    </div>
+                    <div id="excel-message"></div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Pestaña: Configuración -->
+        <div id="configuracion" class="tab-panel">
+            <form id="config-form">
+                <div class="section">
+                    <h2><i class="fas fa-cogs"></i> Configuración del Sistema</h2>
+                    <p style="margin-bottom: 20px; color: #a0aec0; font-size: 0.9em;">
+                        <i class="fas fa-info-circle"></i> La configuración se preserva automáticamente. 
+                        Solo se actualizará cuando cargues un Excel con nodos nuevos. 
+                        Puedes modificar cualquier parámetro y guardar los cambios.
+                    </p>
+                    
+                    <div style="margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                        <button type="button" class="btn btn-warning" onclick="descargarTemplateConfig()">
+                            <i class="fas fa-download"></i> Descargar Template Configuración
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="importarConfiguracion()">
+                            <i class="fas fa-upload"></i> Importar Configuración
+                        </button>
+                        <input type="file" id="archivo-config" accept=".xlsx,.xls" style="display: none;" onchange="procesarImportacionConfig()">
+                        <div style="flex: 1; min-width: 200px;">
+                            <p style="font-size: 0.85em; color: #a0aec0; margin: 0;">
+                                Descarga un template Excel de configuración con los datos actuales, edítalo y luego impórtalo aquí
+                            </p>
+                        </div>
+                    </div>
+                    <div id="config-message"></div>
+                    
+                    <div id="excel-warning" class="notification warning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Primero debes cargar un archivo Excel para configurar el sistema.
+                    </div>
+                
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="deposito">Depósito Base:</label>
+                            <input type="text" id="deposito" name="deposito" value="{{ config.deposito or 'Deposito Pie Andino' }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="limite_jornada">Límite de Jornada (min):</label>
+                            <input type="number" id="limite_jornada" name="limite_jornada" value="{{ config.limite_jornada or 720 }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tiempo_toma">Tiempo de Toma (min):</label>
+                            <input type="number" id="tiempo_toma" name="tiempo_toma" value="{{ config.tiempo_toma or 15 }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="max_inicio_jornada_conductor">Máx. Inicio Jornada Conductor (HH:MM):</label>
+                            <input type="text" id="max_inicio_jornada_conductor" name="max_inicio_jornada_conductor" value="{{ config.max_inicio_jornada_conductor or '23:59' }}" required>
+                        </div>
+                    </div>
+
+                    <h3><i class="fas fa-link"></i> Parámetros Fase 3 (Unión de Conductores)</h3>
+                    <p style="margin-bottom: 14px; color: #a0aec0; font-size: 0.88em;">
+                        Estos parámetros controlan cómo se intenta unir turnos de conductores para reducir cantidad total,
+                        siempre respetando jornada máxima, tiempos de conexión y reglas de grupo.
+                    </p>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" id="f3_union_solo_por_deposito" name="f3_union_solo_por_deposito" {{ 'checked' if config.fase_3_union_conductores and config.fase_3_union_conductores.union_solo_por_deposito else '' }}>
+                                <label for="f3_union_solo_por_deposito">Unión solo por depósito</label>
+                            </div>
+                            <small style="color: #a0aec0;">Qué hace: permite unir turnos solo si la conexión puede hacerse pasando por depósito. Si lo desactivas, permite uniones directas entre nodos.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="f3_parada_larga_umbral_union">Parada larga umbral unión (min):</label>
+                            <input type="number" id="f3_parada_larga_umbral_union" name="f3_parada_larga_umbral_union" value="{{ config.fase_3_union_conductores.parada_larga_umbral_union if config.fase_3_union_conductores and config.fase_3_union_conductores.parada_larga_umbral_union is not none else 60 }}" required>
+                            <small style="color: #a0aec0;">Si el descanso entre dos tramos supera este valor, la unión se rechaza (salvo excepciones de depósito).</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="f3_parada_larga_excepcion_depot_min">Excepción parada larga en depósito (min):</label>
+                            <input type="number" id="f3_parada_larga_excepcion_depot_min" name="f3_parada_larga_excepcion_depot_min" value="{{ config.fase_3_union_conductores.parada_larga_excepcion_depot_min if config.fase_3_union_conductores and config.fase_3_union_conductores.parada_larga_excepcion_depot_min is not none else 120 }}" required>
+                            <small style="color: #a0aec0;">Relaja el umbral anterior solo cuando la espera ocurre en depósito.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="f3_max_rondas_union">Máximo rondas unión:</label>
+                            <input type="number" id="f3_max_rondas_union" name="f3_max_rondas_union" value="{{ config.fase_3_union_conductores.max_rondas_union if config.fase_3_union_conductores and config.fase_3_union_conductores.max_rondas_union is not none else 1500 }}" required>
+                            <small style="color: #a0aec0;">Más rondas = más búsqueda de mejoras (más tiempo de ejecución).</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="f3_timeout_ortools_segundos">Timeout OR-Tools (seg):</label>
+                            <input type="number" id="f3_timeout_ortools_segundos" name="f3_timeout_ortools_segundos" value="{{ config.fase_3_union_conductores.timeout_ortools_segundos if config.fase_3_union_conductores and config.fase_3_union_conductores.timeout_ortools_segundos is not none else 180 }}" required>
+                            <small style="color: #a0aec0;">Tiempo máximo del solver. Más alto mejora calidad potencial, pero demora más.</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nodos">Nodos (separados por comas, punto y coma o saltos de línea):</label>
+                        <textarea id="nodos" name="nodos" rows="6" placeholder="Ej: ROTPIR, TILVOL&#10;O uno por línea:&#10;NODO1&#10;NODO2">{{ config.nodos | join(', ') if config.nodos else '' }}</textarea>
+                        <small style="color: #a0aec0;">Acepta comas, ; o un nodo por línea.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lineas_catalogo">Líneas habilitadas (separadas por comas):</label>
+                        <textarea id="lineas_catalogo" name="lineas_catalogo" rows="2" placeholder="Ej: F12, F25, 124">{{ lineas_disponibles | join(', ') if lineas_disponibles else '' }}</textarea>
+                        <small style="color: #a0aec0;">Agrega nuevas líneas y guarda la configuración para editar sus parámetros detallados.</small>
+                    </div>
+
+                    <h3><i class="fas fa-bus"></i> Tipos de Bus y parámetros eléctricos</h3>
+                    <div class="tipo-bus-grid">
+                        {% for tipo in tipos_bus_codigos %}
+                        {% set datos_tipo = config.tipos_bus[tipo] if config.tipos_bus and tipo in config.tipos_bus else {} %}
+                        <div class="tipo-card">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h4>Tipo {{ tipo }}</h4>
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" name="tipo_{{ tipo }}_habilitado" id="tipo_{{ tipo }}_habilitado" {{ 'checked' if not config.tipos_bus or tipo in config.tipos_bus else '' }}>
+                                    <label for="tipo_{{ tipo }}_habilitado">Habilitar</label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Descripción:</label>
+                                <input type="text" name="tipo_{{ tipo }}_descripcion" value="{{ datos_tipo.descripcion if datos_tipo and datos_tipo.descripcion else '' }}" placeholder="Descripción del tipo {{ tipo }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Autonomía (km):</label>
+                                <input type="number" step="0.1" name="tipo_{{ tipo }}_autonomia" value="{{ datos_tipo.autonomia_km if datos_tipo and datos_tipo.autonomia_km is not none else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Capacidad de pasajeros:</label>
+                                <input type="number" name="tipo_{{ tipo }}_capacidad" value="{{ datos_tipo.capacidad_pasajeros if datos_tipo and datos_tipo.capacidad_pasajeros is not none else '' }}">
+                            </div>
+                            {% if tipo == 'BE' %}
+                            {% set parametros = datos_tipo.parametros_electricos if datos_tipo and datos_tipo.parametros_electricos else {} %}
+                            <div class="form-group">
+                                <label>Carga inicial (%)</label>
+                                <input type="number" step="0.1" name="tipo_BE_carga_inicial" value="{{ parametros.carga_inicial if parametros and parametros.carga_inicial is not none else 95 }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Consumo (% por km)</label>
+                                <input type="number" step="0.01" name="tipo_BE_consumo_por_km" value="{{ parametros.consumo_por_km if parametros and parametros.consumo_por_km is not none else 0.5 }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Límite operativo (%)</label>
+                                <input type="number" step="0.1" name="tipo_BE_limite_operacion" value="{{ parametros.limite_operacion if parametros and parametros.limite_operacion is not none else 30 }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Porcentaje mínimo para ingresar a recarga</label>
+                                <input type="number" step="0.1" name="tipo_BE_min_entrada" value="{{ parametros.min_entrada_recarga if parametros and parametros.min_entrada_recarga is not none else 60 }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Porcentaje máximo para ingresar</label>
+                                <input type="number" step="0.1" name="tipo_BE_max_entrada" value="{{ parametros.max_entrada_recarga if parametros and parametros.max_entrada_recarga is not none else 80 }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Tasa de recarga (% por min)</label>
+                                <input type="number" step="0.01" name="tipo_BE_tasa_recarga" value="{{ parametros.tasa_recarga_por_minuto if parametros and parametros.tasa_recarga_por_minuto is not none else 1.25 }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Ventana de recarga (inicio)</label>
+                                <input type="text" name="tipo_BE_ventana_inicio" value="{{ parametros.ventana_recarga.inicio if parametros and parametros.ventana_recarga and parametros.ventana_recarga.inicio is not none else '09:00' }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Ventana de recarga (fin)</label>
+                                <input type="text" name="tipo_BE_ventana_fin" value="{{ parametros.ventana_recarga.fin if parametros and parametros.ventana_recarga and parametros.ventana_recarga.fin is not none else '18:00' }}">
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <h3><i class="fas fa-warehouse"></i> Depósitos Base Configurados</h3>
+                    <p style="color: #a0aec0; font-size: 0.85em; margin-bottom: 15px;">
+                        <strong>Múltiples Depósitos Base:</strong> Configure uno o más depósitos/patios. <strong>TODOS los depósitos configurados 
+                        se usan como depósitos base</strong>, es decir, los buses y conductores pueden iniciar y terminar desde cualquier depósito. 
+                        El sistema determina automáticamente desde qué depósito le conviene más iniciar/terminar para minimizar vacíos y buses. 
+                        Esto permite compartir recursos entre terminales y reduce significativamente los recursos necesarios.
+                    </p>
+                    <div class="form-group" style="margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #2d3748; border-radius: 6px;">
+                            <div>
+                                <label style="margin: 0; font-weight: bold; color: #e2e8f0;">Lista de Depósitos Base:</label>
+                                <p style="margin: 5px 0 0 0; color: #a0aec0; font-size: 0.85em;">Puedes agregar múltiples depósitos haciendo clic en el botón</p>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="agregarDeposito()" style="padding: 10px 20px; font-size: 1em; font-weight: bold; background: #4299e1; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                <i class="fas fa-plus"></i> Agregar Depósito Base
+                            </button>
+                        </div>
+                        <div id="depositos-container" style="background: #1a202c; padding: 15px; border-radius: 6px; border: 1px solid #4a5568;">
+                            {% if config.depositos and config.depositos|length > 0 %}
+                                {% set depositos_activos = config.depositos %}
+                            {% else %}
+                                {% set depositos_activos = [] %}
+                            {% endif %}
+                            {% if depositos_activos|length == 0 %}
+                                {# Si no hay depósitos, mostrar al menos uno basado en el campo "deposito" #}
+                                {% set dep_nombre_base = config.deposito or 'Deposito Pie Andino' %}
+                                {% set dep_max_buses_base = 200 %}
+                                <div class="franja-item" style="margin-bottom: 15px; padding: 15px; background: #2d3748; border-radius: 6px; border: 1px solid #4a5568;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                        <div style="display: flex; gap: 15px; flex: 1; align-items: center; flex-wrap: wrap;">
+                                            <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
+                                                <label for="deposito_nombre_0" style="font-size: 0.85em; color: #a0aec0; font-weight: bold;">Nombre del Depósito Base:</label>
+                                                <input type="text" id="deposito_nombre_0" name="deposito_nombre_0" value="{{ dep_nombre_base }}" placeholder="Ej: Deposito Intermodal" required style="width: 100%; padding: 8px; background: #1a202c; border: 1px solid #4a5568; color: #e2e8f0; border-radius: 4px;">
+                                            </div>
+                                            <div class="form-group" style="margin: 0; width: 150px;">
+                                                <label for="deposito_max_buses_0" style="font-size: 0.85em; color: #a0aec0; font-weight: bold;">Máximo buses:</label>
+                                                <input type="number" id="deposito_max_buses_0" name="deposito_max_buses_0" value="{{ dep_max_buses_base }}" min="1" required style="width: 100%; padding: 8px; background: #1a202c; border: 1px solid #4a5568; color: #e2e8f0; border-radius: 4px;">
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn" onclick="eliminarDeposito(this)" style="padding: 8px 15px; font-size: 0.9em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </div>
+                                </div>
+                            {% else %}
+                                {% for dep in depositos_activos %}
+                                {% set dep_nombre = dep.nombre|default('N/A') %}
+                                {% set dep_max_buses = dep.max_buses|default(200) %}
+                                <div class="franja-item" style="margin-bottom: 15px; padding: 15px; background: #2d3748; border-radius: 6px; border: 1px solid #4a5568;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                        <div style="display: flex; gap: 15px; flex: 1; align-items: center; flex-wrap: wrap;">
+                                            <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
+                                                <label for="deposito_nombre_{{ loop.index0 }}" style="font-size: 0.85em; color: #a0aec0; font-weight: bold;">Nombre del Depósito Base:</label>
+                                                <input type="text" id="deposito_nombre_{{ loop.index0 }}" name="deposito_nombre_{{ loop.index0 }}" value="{{ dep_nombre }}" placeholder="Ej: Deposito Intermodal" required style="width: 100%; padding: 8px; background: #1a202c; border: 1px solid #4a5568; color: #e2e8f0; border-radius: 4px;">
+                                            </div>
+                                            <div class="form-group" style="margin: 0; width: 150px;">
+                                                <label for="deposito_max_buses_{{ loop.index0 }}" style="font-size: 0.85em; color: #a0aec0; font-weight: bold;">Máximo buses:</label>
+                                                <input type="number" id="deposito_max_buses_{{ loop.index0 }}" name="deposito_max_buses_{{ loop.index0 }}" value="{{ dep_max_buses }}" min="1" required style="width: 100%; padding: 8px; background: #1a202c; border: 1px solid #4a5568; color: #e2e8f0; border-radius: 4px;">
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn" onclick="eliminarDeposito(this)" style="padding: 8px 15px; font-size: 0.9em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <input type="hidden" id="num_depositos" name="num_depositos" value="{{ depositos_activos|length if depositos_activos|length > 0 else 1 }}">
+                    </div>
+
+                    <h3><i class="fas fa-route"></i> Configuración por línea</h3>
+                    <p style="color: #a0aec0; font-size: 0.85em; margin-bottom: 15px;">
+                        Ajusta los tipos permitidos, frecuencias y duraciones objetivo para cada línea.
+                    </p>
+                    {% if lineas_disponibles %}
+                        {% for linea_nombre in lineas_disponibles %}
+                        {% set idx = loop.index0 %}
+                        {% set datos_linea = config.lineas[linea_nombre] if config.lineas and linea_nombre in config.lineas else {} %}
+                        <div class="linea-card">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <h4>{{ linea_nombre }}</h4>
+                                <input type="hidden" name="linea_{{ idx }}_nombre" value="{{ linea_nombre }}">
+                            </div>
+                            <div class="checkbox-row">
+                                {% for tipo in tipos_bus_codigos %}
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" name="linea_{{ idx }}_tipo_{{ tipo }}" id="linea_{{ idx }}_tipo_{{ tipo }}" {{ 'checked' if not datos_linea or (datos_linea.tipos_permitidos and tipo in datos_linea.tipos_permitidos) else '' }}>
+                                    <label for="linea_{{ idx }}_tipo_{{ tipo }}">{{ tipo }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="notification info" style="margin-bottom: 20px;">
+                            <i class="fas fa-info-circle"></i> Añade líneas en el campo anterior y guarda para configurar sus parámetros.
+                        </div>
+                    {% endif %}
+                    
+                    <h3><i class="fas fa-link"></i> Grupos de Líneas para Interlineados</h3>
+                    <p style="color: #a0aec0; font-size: 0.85em; margin-bottom: 15px;">
+                        Configura grupos de líneas que pueden interlinear entre sí. Si habilitas "Interlineado Global", 
+                        todas las líneas podrán interlinear sin restricciones. Si no, solo las líneas del mismo grupo podrán interlinear.
+                    </p>
+                    
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" name="interlineado_global" id="interlineado_global" 
+                                   {{ 'checked' if config.interlineado_global else '' }} 
+                                   onchange="toggleGruposLineas()">
+                            <label for="interlineado_global" style="font-weight: 600; font-size: 1em;">
+                                Habilitar Interlineado Global (todas las líneas pueden interlinear)
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="grupos-lineas-container" style="{{ 'display: none;' if config.interlineado_global else '' }}">
+                        {% set grupos_config = config.grupos_lineas if config.grupos_lineas else {} %}
+                        {% if grupos_config %}
+                            {% for grupo_nombre, lineas_grupo in grupos_config.items() %}
+                            {% set grupo_idx = loop.index0 %}
+                            <div class="deposito-card" data-grupo-index="{{ grupo_idx }}">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                    <h4>Grupo: {{ grupo_nombre }}</h4>
+                                    <div class="deposito-actions">
+                                        <button type="button" class="btn btn-warning btn-remove-grupo">
+                                            <i class="fas fa-trash"></i> Eliminar Grupo
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Nombre del Grupo:</label>
+                                    <input type="text" name="grupo_nombre[{{ grupo_idx }}]" value="{{ grupo_nombre }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Límite jornada grupo (min):</label>
+                                    <input type="number" name="grupo_limite_jornada[{{ grupo_idx }}]" value="{{ config.limite_jornada_por_grupo_linea[grupo_nombre] if config.limite_jornada_por_grupo_linea and grupo_nombre in config.limite_jornada_por_grupo_linea else (config.limite_jornada or 720) }}" min="1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Líneas del Grupo:</label>
+                                    <div class="checkbox-row" style="margin-top: 10px;">
+                                        {% for linea in lineas_disponibles %}
+                                        <div class="checkbox-wrapper">
+                                            <input type="checkbox" 
+                                                   name="grupos_lineas[{{ grupo_idx }}][{{ loop.index0 }}]" 
+                                                   id="grupo_{{ grupo_idx }}_linea_{{ loop.index0 }}"
+                                                   value="{{ linea }}"
+                                                   {{ 'checked' if linea in lineas_grupo else '' }}>
+                                            <label for="grupo_{{ grupo_idx }}_linea_{{ loop.index0 }}">{{ linea }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <div id="grupos-lineas-empty" style="text-align: center; padding: 20px; background: #1a202c; border-radius: 8px; margin-bottom: 20px; {{ 'display: none;' if grupos_config else '' }}">
+                        <p style="color: #a0aec0; margin-bottom: 15px;">
+                            <i class="fas fa-info-circle"></i> No hay grupos configurados. Agrega un grupo para permitir interlineados entre líneas específicas.
+                        </p>
+                    </div>
+                    
+                    <div style="text-align:right; margin-bottom:20px;">
+                        <button type="button" class="btn btn-primary" id="btn-agregar-grupo-linea" onclick="agregarGrupoLinea()">
+                            <i class="fas fa-plus"></i> Agregar Grupo de Líneas
+                        </button>
+                    </div>
+                    
+                    <template id="grupo-linea-template">
+                        <div class="deposito-card" data-grupo-index="__INDEX__">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h4>Grupo Nuevo</h4>
+                                <div class="deposito-actions">
+                                    <button type="button" class="btn btn-warning btn-remove-grupo">
+                                        <i class="fas fa-trash"></i> Eliminar Grupo
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Nombre del Grupo:</label>
+                                <input type="text" name="grupo_nombre[__INDEX__]" value="Grupo___INDEX__" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Límite jornada grupo (min):</label>
+                                <input type="number" name="grupo_limite_jornada[__INDEX__]" value="720" min="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Líneas del Grupo:</label>
+                                <div class="checkbox-row" style="margin-top: 10px;" id="lineas-grupo-__INDEX__">
+                                    <!-- Se llenará dinámicamente con JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <h3><i class="fas fa-user-clock"></i> Tipos de Conductor</h3>
+                    <p style="color: #a0aec0; font-size: 0.85em; margin-bottom: 15px;">
+                        <i class="fas fa-info-circle"></i> Defina tipos de conductor con <strong>rango de ingreso</strong> (hora mínima y máxima en que puede ingresar) y <strong>rango de fin de jornada</strong> (hora mínima y máxima en que puede terminar). El sistema creará conductores solo dentro de estos rangos; no existirán conductores fuera de tipo.
+                    </p>
+                    <div style="margin-bottom: 15px;">
+                        <button type="button" class="btn btn-primary" onclick="agregarTipoConductor()">
+                            <i class="fas fa-plus"></i> Agregar Tipo de Conductor
+                        </button>
+                    </div>
+                    <div id="tipos-conductor-container">
+                        {% set tipos_conductor = config.tipos_conductor if config.tipos_conductor else [] %}
+                        {% for tc in tipos_conductor %}
+                        <div class="franja-item tipo-conductor-item" data-tipo-index="{{ loop.index0 }}">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+                                <h4 style="margin: 0; color: #3FA8FF;">{{ tc.nombre|default(tc.id) }}</h4>
+                                <button type="button" class="btn" onclick="eliminarTipoConductor(this)" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+                            </div>
+                            <input type="hidden" name="tipo_conductor_{{ loop.index0 }}_id" value="{{ tc.id|default(tc.nombre) }}">
+                            <div class="franja-grid">
+                                <div class="form-group">
+                                    <label>Nombre / ID:</label>
+                                    <input type="text" name="tipo_conductor_{{ loop.index0 }}_nombre" value="{{ tc.nombre|default(tc.id) }}" placeholder="Ej: Nocturno, AM" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Ingreso desde (HH:MM):</label>
+                                    <input type="text" name="tipo_conductor_{{ loop.index0 }}_ingreso_min" value="{{ tc.rango_ingreso.min if tc.rango_ingreso else '00:00' }}" placeholder="00:00">
+                                </div>
+                                <div class="form-group">
+                                    <label>Ingreso hasta (HH:MM):</label>
+                                    <input type="text" name="tipo_conductor_{{ loop.index0 }}_ingreso_max" value="{{ tc.rango_ingreso.max if tc.rango_ingreso else '02:59' }}" placeholder="02:59">
+                                </div>
+                                <div class="form-group">
+                                    <label>Fin jornada desde (HH:MM):</label>
+                                    <input type="text" name="tipo_conductor_{{ loop.index0 }}_fin_min" value="{{ tc.rango_fin_jornada.min if tc.rango_fin_jornada else '07:00' }}" placeholder="07:00">
+                                </div>
+                                <div class="form-group">
+                                    <label>Fin jornada hasta (HH:MM):</label>
+                                    <input type="text" name="tipo_conductor_{{ loop.index0 }}_fin_max" value="{{ tc.rango_fin_jornada.max if tc.rango_fin_jornada else '07:00' }}" placeholder="20:00">
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div id="tipos-conductor-empty" style="padding: 15px; background: #1a202c; border-radius: 6px; border: 1px dashed #4a5568; color: #a0aec0;">
+                            No hay tipos de conductor. Agregue al menos uno para restringir horarios de ingreso y fin de jornada.
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <h3><i class="fas fa-clock"></i> Configuración de Vacíos</h3>
+                    <p style="color: #a0aec0; font-size: 0.85em; margin-bottom: 15px;">
+                        <i class="fas fa-info-circle"></i> <strong>Múltiples Depósitos:</strong> Las conexiones incluyen vacíos entre depósitos 
+                        (por ejemplo, "Deposito 1_Deposito 2"), lo que permite que los buses compartan recursos entre terminales y reduzcan 
+                        vacíos, buses y conductores necesarios. Configure los tiempos y kilómetros para estas conexiones según su operación.
+                    </p>
+                    <div id="vacios-config">
+                        {% for conexion in conexiones %}
+                        <div class="franja-item" id="vacio-{{ conexion }}">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4>{{ conexion }}</h4>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <div class="checkbox-wrapper">
+                                        <input type="checkbox" name="vacios_{{ conexion }}_habilitado" id="vacios_{{ conexion }}_habilitado" {{ 'checked' if conexion in config.vacios and config.vacios[conexion].habilitado else '' }}>
+                                        <label for="vacios_{{ conexion }}_habilitado">Habilitar</label>
+                                    </div>
+                                    <button type="button" class="btn btn-primary" onclick="agregarFranjaVacio('{{ conexion }}')" style="padding: 5px 10px; font-size: 0.9em;">
+                                        <i class="fas fa-plus"></i> Agregar Franja
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="franjas-{{ conexion }}" class="franjas-container">
+                                {% if conexion in config.vacios and config.vacios[conexion].franjas %}
+                                {% for franja in config.vacios[conexion].franjas %}
+                                <div class="franja-grid">
+                                    <div class="form-group">
+                                        <label>Inicio:</label>
+                                        <input type="text" name="vacios_{{ conexion }}_franja_{{ loop.index0 }}_inicio" value="{{ franja.inicio }}" placeholder="00:00">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Fin:</label>
+                                        <input type="text" name="vacios_{{ conexion }}_franja_{{ loop.index0 }}_fin" value="{{ franja.fin }}" placeholder="40:00">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Tiempo (min):</label>
+                                        <input type="number" name="vacios_{{ conexion }}_franja_{{ loop.index0 }}_tiempo" value="{{ franja.tiempo }}" step="0.1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Km:</label>
+                                        <input type="number" name="vacios_{{ conexion }}_franja_{{ loop.index0 }}_km" value="{{ franja.km }}" step="0.1">
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <h3><i class="fas fa-walking"></i> Configuración de Desplazamientos</h3>
+                    <div id="desplazamientos-config">
+                        {% for conexion in conexiones %}
+                        <div class="franja-item">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h4>{{ conexion }}</h4>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <div class="checkbox-wrapper">
+                                        <input type="checkbox" name="desplaz_{{ conexion }}_habilitado" id="desplaz_{{ conexion }}_habilitado" {{ 'checked' if conexion in config.desplazamientos and config.desplazamientos[conexion].habilitado else '' }}>
+                                        <label for="desplaz_{{ conexion }}_habilitado">Habilitar</label>
+                                    </div>
+                                    <div class="form-group" style="margin: 0; width: 150px;">
+                                        <label>Tiempo (min):</label>
+                                        <input type="number" name="desplaz_{{ conexion }}_tiempo" value="{{ config.desplazamientos[conexion].tiempo if conexion in config.desplazamientos else 30 }}" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <h3><i class="fas fa-exchange-alt"></i> Puntos de Relevo</h3>
+                    <p style="color: #a0aec0; font-size: 0.85em; margin-bottom: 15px;">
+                        <i class="fas fa-info-circle"></i> Seleccione los nodos donde se permiten cortes de turno (relevos de conductores). 
+                        El conductor solo puede terminar su turno en un punto de relevo o en el depósito. 
+                        Si no marca ninguno, se usan los nodos con desplazamiento configurado.
+                    </p>
+                    <div id="puntos-relevo-config" class="checkbox-row" style="flex-wrap: wrap; gap: 12px;">
+                        {% set puntos_relevo_actuales = (config.puntos_relevo or [])|map('upper')|list %}
+                        {% for nodo in nodos_para_relevo %}
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" 
+                                   name="puntos_relevo_{{ nodo }}" 
+                                   id="puntos_relevo_{{ nodo }}"
+                                   value="{{ nodo }}"
+                                   {{ 'checked' if nodo|upper in puntos_relevo_actuales else '' }}>
+                            <label for="puntos_relevo_{{ nodo }}">{{ nodo }}</label>
+                        </div>
+                        {% else %}
+                        <p style="color: #a0aec0; font-size: 0.9em;">No hay nodos disponibles. Configure los nodos arriba y guarde.</p>
+                        {% endfor %}
+                    </div>
+                    
+                    <h3><i class="fas fa-pause-circle"></i> Configuración de Paradas</h3>
+                    <div id="paradas-config">
+                        {% for nodo in config.nodos %}
+                        <div class="franja-item">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h4>{{ nodo }}</h4>
+                                <div style="display: flex; gap: 20px;">
+                                    <div class="form-group" style="margin: 0; width: 150px;">
+                                        <label>Mín (min):</label>
+                                        <input type="number" name="parada_{{ nodo }}_min" value="{{ config.paradas[nodo].min if nodo in config.paradas else 5 }}">
+                                    </div>
+                                    <div class="form-group" style="margin: 0; width: 150px;">
+                                        <label>Máx (min):</label>
+                                        <input type="number" name="parada_{{ nodo }}_max" value="{{ config.paradas[nodo].max if nodo in config.paradas else 120 }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <button type="button" class="btn btn-success" onclick="guardarConfiguracion()">
+                            <i class="fas fa-save"></i> Guardar Configuración
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Pestaña: Ejecutar -->
+        <div id="ejecutar" class="tab-panel">
+            <div class="section">
+                <h2><i class="fas fa-play-circle"></i> Ejecutar Optimización</h2>
+                
+                <div id="estado-archivo" style="margin-bottom: 15px; padding: 10px; background: #1e1e1e; border-radius: 5px; display: none;">
+                    <i class="fas fa-file-excel" style="color: #4CAF50;"></i>
+                    <span id="estado-archivo-texto"></span>
+                </div>
+                
+                <div id="ejecutar-message"></div>
+                
+                <div class="progress-container" id="progress-container" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">Preparando optimización...</div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button type="button" class="btn btn-primary" onclick="ejecutarOptimizacion()" id="btn-ejecutar">
+                        <i class="fas fa-play"></i> Ejecutar Optimización
+                    </button>
+                </div>
+                
+                <div id="resultados-ejecucion" style="margin-top: 20px; display: none;">
+                    <div class="notification success">
+                        <i class="fas fa-check-circle"></i>
+                        <div>
+                            <strong>Optimización completada</strong>
+                            <div id="resultados-detalle" style="margin-top: 10px; font-size: 0.9em;"></div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <a href="/descargar-excel" download="resultado_diagramacion.xlsx" target="_blank" class="btn btn-success" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="Se abrirá el cuadro para elegir carpeta y nombre del archivo (según tu navegador).">
+                            <i class="fas fa-download"></i> Descargar Resultado Excel
+                        </a>
+                        <p style="font-size: 0.8em; color: #a0aec0; margin-top: 8px;">Si no te pregunta dónde guardar: en Chrome, Configuración → Descargas → Activar &quot;Preguntar dónde guardar cada archivo&quot;.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if is_admin %}
+        <!-- Pestaña: Administración de usuarios -->
+        <div id="admin" class="tab-panel">
+            <div class="section">
+                <h2><i class="fas fa-user-shield"></i> Administración de usuarios</h2>
+                <p style="margin-bottom:16px; color:#a0aec0; font-size:0.9em;">
+                    Crea, modifica y elimina usuarios del sistema. Esta sección solo la ve un administrador.
+                </p>
+                <div id="admin-message"></div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Usuario nuevo</label>
+                        <input id="admin-new-username" type="text" placeholder="ej: jperez">
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input id="admin-new-password" type="password" placeholder="contraseña">
+                    </div>
+                    <div class="form-group">
+                        <label>Rol</label>
+                        <select id="admin-new-role">
+                            <option value="user">Usuario normal</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-success" onclick="crearUsuarioAdmin()">
+                    <i class="fas fa-user-plus"></i> Crear usuario
+                </button>
+
+                <div style="margin-top:22px;">
+                    <h3 style="color:#3FA8FF; margin-bottom:10px;"><i class="fas fa-users"></i> Usuarios existentes</h3>
+                    <div id="admin-users-list" style="display:grid; gap:8px;"></div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Pestaña: Ayuda -->
+        <div id="ayuda" class="tab-panel">
+            <div class="section">
+                <h2><i class="fas fa-book-open"></i> Guía Completa del Sistema</h2>
+                <p style="margin-bottom: 16px; color: #a0aec0; font-size: 0.92em;">
+                    Esta solapa explica qué hace cada solapa, para qué sirve cada bloque de configuración y qué efecto tiene modificar los parámetros más importantes.
+                </p>
+
+                <h3><i class="fas fa-map-signs"></i> Qué hace cada solapa de la web</h3>
+                <div class="notification info">
+                    <div>
+                        <strong>Cargar Excel</strong>: subes los viajes comerciales (insumo operativo).<br>
+                        <strong>Configuración</strong>: defines reglas duras del modelo (jornadas, vacíos, depósitos, líneas, unión de conductores, etc.).<br>
+                        <strong>Ejecutar</strong>: corre Fase 1, Fase 2 y Fase 3 con las reglas guardadas y genera el resultado Excel.<br>
+                        <strong>Ayuda</strong>: referencia funcional para ajustar parámetros con criterio operativo.
+                    </div>
+                </div>
+
+                <h3><i class="fas fa-cogs"></i> Parámetros clave y efecto al cambiarlos</h3>
+                <div class="notification warning" style="margin-bottom: 12px;">
+                    <div><strong>Regla práctica:</strong> cambia pocos parámetros por vez, ejecuta, revisa resultado y recién después aplica otro ajuste.</div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse: collapse; font-size: 0.9em;">
+                        <thead>
+                            <tr style="background:#2d3748;">
+                                <th style="padding:8px; border:1px solid #4a5568; text-align:left;">Parámetro</th>
+                                <th style="padding:8px; border:1px solid #4a5568; text-align:left;">Qué es / para qué sirve</th>
+                                <th style="padding:8px; border:1px solid #4a5568; text-align:left;">Qué pasa si lo subes o lo bajas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:8px; border:1px solid #4a5568;">limite_jornada</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Tope de minutos que puede trabajar un conductor en su jornada.</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Más alto: menos conductores, más jornadas largas. Más bajo: más conductores, más cortes.</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; border:1px solid #4a5568;">Depositos.max_buses</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Límite duro de flota por depósito.</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Si es bajo y no alcanza, el sistema falla por factibilidad (modo estricto).</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; border:1px solid #4a5568;">paradas (min/max)</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Ventana permitida de espera por nodo.</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Max bajo: puede aumentar buses. Max alto: más flexibilidad de encadenamiento.</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; border:1px solid #4a5568;">vacios (tiempo/km)</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Tiempo y distancia de traslado sin pasajeros entre nodos.</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Tiempos altos dificultan conexiones; tiempos irreales pueden invalidar resultado operativo.</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; border:1px solid #4a5568;">f3_parada_larga_umbral_union</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Máxima espera permitida para unir dos turnos en Fase 3.</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Más alto: más uniones posibles. Más bajo: menos uniones, más conductores finales.</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px; border:1px solid #4a5568;">f3_timeout_ortools_segundos</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Tiempo máximo de búsqueda del solver en unión de conductores.</td>
+                                <td style="padding:8px; border:1px solid #4a5568;">Más alto: mejor chance de unión óptima, mayor tiempo total de ejecución.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3><i class="fas fa-file-excel"></i> Cómo leer el template de configuración</h3>
+                <p style="color:#a0aec0; font-size:0.9em; margin-bottom:10px;">
+                    Al descargar "Template Configuración", verás varias solapas. Cada una representa una parte del modelo.
+                </p>
+                <div class="notification info">
+                    <div>
+                        <strong>ConfiguracionGeneral</strong>: parámetros globales.<br>
+                        <strong>Nodos</strong>: catálogo base de nodos.<br>
+                        <strong>Vacios</strong>: conexiones sin pasajeros con franjas horarias.<br>
+                        <strong>Desplazamientos</strong>: movilidad de conductores entre nodos.<br>
+                        <strong>Paradas</strong>: límites min/max de espera por nodo.<br>
+                        <strong>Depositos</strong>: capacidad de buses y recarga por depósito.<br>
+                        <strong>TiposBus</strong>: parámetros operativos y eléctricos por tipo.<br>
+                        <strong>Lineas / GruposLineas</strong>: compatibilidad por línea e interlineado.<br>
+                        <strong>Fase3Union</strong>: reglas para unir turnos de conductores.<br>
+                        <strong>TiposConductor</strong>: ventanas de ingreso y fin de jornada por perfil.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showTab(event, tabName) {
+            // Ocultar todos los paneles
+            const panels = document.querySelectorAll('.tab-panel');
+            panels.forEach(panel => panel.classList.remove('active'));
+            
+            // Remover active de todos los tabs
+            const tabs = document.querySelectorAll('.nav-tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Mostrar el panel seleccionado
+            document.getElementById(tabName).classList.add('active');
+            
+            // Activar el tab correspondiente
+            if (event) {
+                event.currentTarget.classList.add('active');
+            } else {
+                const tab = document.querySelector(`.nav-tab[onclick*="'${tabName}'"]`);
+                if (tab) tab.classList.add('active');
+            }
+        }
+        
+        function procesarExcel() {
+            const form = document.getElementById('excel-form');
+            const formData = new FormData(form);
+            const messageDiv = document.getElementById('excel-message');
+            
+            messageDiv.innerHTML = '<div class="notification info"><i class="fas fa-spinner fa-spin"></i> Procesando archivo...</div>';
+            
+            fetch('/procesar-excel', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    return Promise.reject(new Error("La respuesta no es JSON"));
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    messageDiv.innerHTML = `<div class="notification success"><i class="fas fa-check-circle"></i> ${data.message}</div>`;
+                    // Mostrar indicador de archivo cargado con el nombre real del archivo
+                    const nombreArchivo = data.nombre_archivo || 'datos_salidas.xlsx';
+                    mostrarIndicadorArchivo(nombreArchivo);
+                    // IMPORTANTE: Forzar recarga completa de la página para mostrar datos actualizados
+                    setTimeout(() => {
+                        // Agregar timestamp para evitar caché del navegador
+                        const timestamp = new Date().getTime();
+                        window.location.href = window.location.pathname + '?t=' + timestamp;
+                    }, 1500);
+                } else {
+                    messageDiv.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                messageDiv.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> Error: ${error.message}</div>`;
+            });
+        }
+        
+        function guardarConfiguracion() {
+            const form = document.getElementById('config-form');
+            const formData = new FormData(form);
+            
+            fetch('/guardar-configuracion', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    return Promise.reject(new Error("La respuesta no es JSON"));
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert('Configuración guardada exitosamente');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+        
+        // Función para mostrar el indicador de archivo cargado (sin hacer petición al servidor)
+        function mostrarIndicadorArchivo(nombreArchivo) {
+            const estadoDiv = document.getElementById('estado-archivo');
+            const estadoTexto = document.getElementById('estado-archivo-texto');
+            if (estadoDiv && estadoTexto) {
+                estadoDiv.style.display = 'block';
+                const nombre = nombreArchivo || 'datos_salidas.xlsx';
+                estadoTexto.textContent = `Archivo cargado: ${nombre}. Puedes ejecutar optimizaciones sin recargar.`;
+            }
+        }
+        
+        function ejecutarOptimizacion() {
+            const btnEjecutar = document.getElementById('btn-ejecutar');
+            const progressContainer = document.getElementById('progress-container');
+            const resultadosDiv = document.getElementById('resultados-ejecucion');
+            const messageDiv = document.getElementById('ejecutar-message');
+            
+            btnEjecutar.disabled = true;
+            progressContainer.style.display = 'block';
+            resultadosDiv.style.display = 'none';
+            messageDiv.innerHTML = '<div class="notification info"><i class="fas fa-spinner fa-spin"></i> Iniciando optimización...</div>';
+            
+            fetch('/ejecutar-optimizacion', {
+                method: 'POST'
+            })
+            .then(response => {
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    return Promise.reject(new Error("La respuesta no es JSON"));
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    messageDiv.innerHTML = '<div class="notification success"><i class="fas fa-check-circle"></i> Optimización iniciada</div>';
+                    monitorearProgreso();
+                } else {
+                    const esEnEjecucion = (data.message || '').toLowerCase().indexOf('en ejecucion') >= 0 || (data.message || '').toLowerCase().indexOf('en ejecución') >= 0;
+                    let html = `<div class="notification error"><i class="fas fa-times-circle"></i> ${data.message}`;
+                    if (esEnEjecucion) {
+                        html += ` <button type="button" class="btn btn-small" id="btn-resetear-estado" style="margin-left: 10px;">Desbloquear</button>`;
+                    }
+                    html += '</div>';
+                    messageDiv.innerHTML = html;
+                    btnEjecutar.disabled = false;
+                    progressContainer.style.display = 'none';
+                    if (esEnEjecucion) {
+                        document.getElementById('btn-resetear-estado').onclick = function() {
+                            function doReset(url) {
+                                return fetch(url, { method: 'POST' })
+                                    .then(function(r) {
+                                        const ct = r.headers.get('content-type') || '';
+                                        if (r.status === 404) return Promise.reject(new Error('404'));
+                                        if (!ct.includes('application/json')) {
+                                            if (!r.ok) return Promise.reject(new Error('Respuesta no valida'));
+                                            return r.text().then(function() { return { success: false, message: 'Respuesta no JSON' }; });
+                                        }
+                                        return r.json();
+                                    });
+                            }
+                            doReset('/resetar-optimizacion')
+                                .catch(function() { return doReset('/api/resetar-optimizacion'); })
+                                .then(function(d) {
+                                    if (d && d.success) {
+                                        messageDiv.innerHTML = '<div class="notification success">Estado reseteado. Puedes ejecutar de nuevo.</div>';
+                                    } else {
+                                        messageDiv.innerHTML = '<div class="notification error">' + (d && d.message ? d.message : 'Error al resetear') + '</div>';
+                                    }
+                                })
+                                .catch(function(err) {
+                                    messageDiv.innerHTML = '<div class="notification error">' + (err && err.message ? err.message : 'Error al resetear. Reinicia la aplicacion web.') + '</div>';
+                                });
+                        };
+                    }
+                }
+            })
+            .catch(error => {
+                messageDiv.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> Error: ${error.message}</div>`;
+                btnEjecutar.disabled = false;
+                progressContainer.style.display = 'none';
+            });
+        }
+        
+        function monitorearProgreso() {
+            const interval = setInterval(() => {
+                fetch('/progreso')
+                    .then(response => {
+                        const contentType = response.headers.get("content-type");
+                        if (!contentType || !contentType.includes("application/json")) {
+                            return Promise.reject(new Error("La respuesta no es JSON"));
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        const progressFill = document.getElementById('progress-fill');
+                        const progressText = document.getElementById('progress-text');
+                        const btnEjecutar = document.getElementById('btn-ejecutar');
+                        const resultadosDiv = document.getElementById('resultados-ejecucion');
+                        
+                        if (data.is_running) {
+                            progressFill.style.width = data.progress + '%';
+                            progressText.textContent = data.message;
+                        } else {
+                            clearInterval(interval);
+                            progressFill.style.width = data.progress + '%';
+                            progressText.textContent = data.message;
+                            btnEjecutar.disabled = false;
+                            
+                            // Mostrar resultados si la optimización fue exitosa
+                            if (data.success === true) {
+                                // Mostrar resultados inmediatamente
+                                resultadosDiv.style.display = 'block';
+                                // Cargar datos detallados
+                                cargarResultados();
+                                // Mostrar indicador de archivo cargado
+                                mostrarIndicadorArchivo();
+                            } else if (data.progress === 0 || !data.success) {
+                                resultadosDiv.style.display = 'block';
+                                const detalle = document.getElementById('resultados-detalle');
+                                if (detalle) {
+                                    detalle.innerHTML = '<div style="color: orange;">La optimización finalizó pero no se generaron resultados. Revisa los logs.</div><div style="margin-top: 10px; font-size: 0.9em;">Si el archivo se guardó en <code>diagramador_optimizado/resultado_diagramacion.xlsx</code>, puedes intentar descargarlo con el botón de abajo.</div>';
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error monitoreando progreso:', error);
+                        clearInterval(interval);
+                    });
+            }, 1000);
+        }
+        
+        function descargarExcel() {
+            // Enlace directo para que el navegador pueda mostrar "Guardar como" (elegir carpeta y nombre)
+            window.open('/descargar-excel', '_blank', 'noopener,noreferrer');
+        }
+        
+        function descargarTemplateExcel() {
+            window.location.href = '/descargar-template-excel';
+        }
+        
+        function descargarTemplateConfig() {
+            window.location.href = '/descargar-template-config';
+        }
+        
+        function importarConfiguracion() {
+            document.getElementById('archivo-config').click();
+        }
+        
+        function procesarImportacionConfig() {
+            const fileInput = document.getElementById('archivo-config');
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('archivo', file);
+            
+            const messageDiv = document.getElementById('config-message');
+            messageDiv.innerHTML = '<div class="notification info"><i class="fas fa-spinner fa-spin"></i> Importando configuración...</div>';
+            
+            fetch('/importar-configuracion', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    return Promise.reject(new Error("La respuesta no es JSON"));
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    messageDiv.innerHTML = `<div class="notification success"><i class="fas fa-check-circle"></i> ${data.message}</div>`;
+                    // Recargar la página después de 1 segundo para mostrar la nueva configuración
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    messageDiv.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                messageDiv.innerHTML = '<div class="notification error"><i class="fas fa-times-circle"></i> Error al importar configuración</div>';
+            });
+        }
+        
+        function cargarResultados() {
+            fetch('/resultados')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const contentType = response.headers.get("content-type");
+                    if (!contentType || !contentType.includes("application/json")) {
+                        throw new Error("La respuesta no es JSON");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Resultados recibidos:', data);
+                    const detalle = document.getElementById('resultados-detalle');
+                    if (data.success && data.resultados) {
+                        detalle.innerHTML = `
+                            <div><strong>Buses:</strong> ${data.resultados.total_buses || 0}</div>
+                            <div><strong>Conductores:</strong> ${data.resultados.total_conductors || 0}</div>
+                        `;
+                    } else {
+                        detalle.innerHTML = '<div>No se pudieron cargar los resultados</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando resultados:', error);
+                    const detalle = document.getElementById('resultados-detalle');
+                    if (detalle) {
+                        detalle.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                    }
+                });
+        }
+        
+        function agregarFranjaVacio(conexion) {
+            const container = document.getElementById(`franjas-${conexion}`);
+            const index = container.children.length;
+            const franjaDiv = document.createElement('div');
+            franjaDiv.className = 'franja-grid';
+            franjaDiv.innerHTML = `
+                <div class="form-group">
+                    <label>Inicio:</label>
+                    <input type="text" name="vacios_${conexion}_franja_${index}_inicio" placeholder="00:00">
+                </div>
+                <div class="form-group">
+                    <label>Fin:</label>
+                    <input type="text" name="vacios_${conexion}_franja_${index}_fin" placeholder="40:00">
+                </div>
+                <div class="form-group">
+                    <label>Tiempo (min):</label>
+                    <input type="number" name="vacios_${conexion}_franja_${index}_tiempo" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>Km:</label>
+                    <input type="number" name="vacios_${conexion}_franja_${index}_km" step="0.1">
+                </div>
+            `;
+            container.appendChild(franjaDiv);
+        }
+
+        function agregarDeposito() {
+            console.log('agregarDeposito() llamada');
+            const container = document.getElementById('depositos-container');
+            const numDepositosInput = document.getElementById('num_depositos');
+            
+            if (!container) {
+                console.error('ERROR: No se encontró #depositos-container');
+                alert('Error: No se encontró el contenedor de depósitos. Por favor recarga la página.');
+                return;
+            }
+            
+            if (!numDepositosInput) {
+                console.warn('ADVERTENCIA: No se encontró #num_depositos, creándolo...');
+                // Crear el campo oculto si no existe
+                const form = container.closest('form');
+                if (form) {
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.id = 'num_depositos';
+                    hiddenInput.name = 'num_depositos';
+                    hiddenInput.value = '1';
+                    form.insertBefore(hiddenInput, container);
+                    console.log('Campo num_depositos creado');
+                } else {
+                    console.error('ERROR: No se encontró el formulario');
+                    alert('Error: No se encontró el formulario. Por favor recarga la página.');
+                    return;
+                }
+            }
+            
+            // Obtener el próximo índice
+            const itemsExistentes = container.querySelectorAll('.franja-item');
+            let nextIndex = 0;
+            
+            // Si hay items existentes, obtener el índice máximo + 1
+            if (itemsExistentes.length > 0) {
+                const indices = Array.from(itemsExistentes).map(item => {
+                    const nombreInput = item.querySelector('input[name^="deposito_nombre_"]');
+                    if (nombreInput) {
+                        const match = nombreInput.name.match(/deposito_nombre_(\d+)/);
+                        return match ? parseInt(match[1], 10) : -1;
+                    }
+                    return -1;
+                }).filter(idx => idx >= 0);
+                
+                if (indices.length > 0) {
+                    nextIndex = Math.max(...indices) + 1;
+                } else {
+                    nextIndex = itemsExistentes.length;
+                }
+            }
+            
+            // Crear el nuevo elemento HTML
+            const nuevoItem = document.createElement('div');
+            nuevoItem.className = 'franja-item';
+            nuevoItem.style.marginBottom = '15px';
+            nuevoItem.style.padding = '15px';
+            nuevoItem.style.background = '#2d3748';
+            nuevoItem.style.borderRadius = '6px';
+            nuevoItem.style.border = '1px solid #4a5568';
+            nuevoItem.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 15px; flex: 1; align-items: center; flex-wrap: wrap;">
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
+                            <label for="deposito_nombre_${nextIndex}" style="font-size: 0.85em; color: #a0aec0; font-weight: bold;">Nombre del Depósito Base:</label>
+                            <input type="text" id="deposito_nombre_${nextIndex}" name="deposito_nombre_${nextIndex}" value="" placeholder="Ej: Deposito Intermodal" required style="width: 100%; padding: 8px; background: #1a202c; border: 1px solid #4a5568; color: #e2e8f0; border-radius: 4px;">
+                        </div>
+                        <div class="form-group" style="margin: 0; width: 150px;">
+                            <label for="deposito_max_buses_${nextIndex}" style="font-size: 0.85em; color: #a0aec0; font-weight: bold;">Máximo buses:</label>
+                            <input type="number" id="deposito_max_buses_${nextIndex}" name="deposito_max_buses_${nextIndex}" value="200" min="1" required style="width: 100%; padding: 8px; background: #1a202c; border: 1px solid #4a5568; color: #e2e8f0; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <button type="button" class="btn" onclick="eliminarDeposito(this)" style="padding: 8px 15px; font-size: 0.9em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        <i class="fas fa-trash"></i> Eliminar
+                    </button>
+                </div>
+            `;
+            
+            // Remover cualquier mensaje vacío si existe
+            const emptyMsg = container.querySelector('div[style*="color: #a0aec0"]:not(.franja-item *)');
+            if (emptyMsg && (emptyMsg.textContent.includes('No hay depósitos') || emptyMsg.textContent.includes('Haz clic'))) {
+                emptyMsg.remove();
+            }
+            
+            container.appendChild(nuevoItem);
+            
+            // Hacer scroll suave al nuevo elemento
+            nuevoItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // Enfocar el input del nombre
+            const nombreInput = nuevoItem.querySelector('input[name^="deposito_nombre_"]');
+            if (nombreInput) {
+                setTimeout(() => nombreInput.focus(), 100);
+            }
+            
+            // Actualizar el campo oculto con el número de depósitos
+            const totalItems = container.querySelectorAll('.franja-item').length;
+            if (numDepositosInput) {
+                numDepositosInput.value = totalItems;
+            }
+            
+            console.log(`✅ Depósito agregado exitosamente. Total de depósitos: ${totalItems}`);
+            console.log(`   Índice del nuevo depósito: ${nextIndex}`);
+            console.log(`   Campo num_depositos actualizado a: ${totalItems}`);
+        }
+        
+        function eliminarDeposito(btn) {
+            console.log('eliminarDeposito() llamada');
+            const container = document.getElementById('depositos-container');
+            const numDepositosInput = document.getElementById('num_depositos');
+            
+            if (!container) {
+                console.error('ERROR: No se encontró #depositos-container');
+                return;
+            }
+            
+            if (!numDepositosInput) {
+                console.error('ERROR: No se encontró #num_depositos');
+                return;
+            }
+            
+            // Encontrar el item padre
+            const item = btn.closest('.franja-item');
+            if (!item) return;
+            
+            // Verificar que no sea el último depósito
+            const totalItems = container.querySelectorAll('.franja-item');
+            if (totalItems.length <= 1) {
+                alert('Debe existir al menos un depósito.');
+                return;
+            }
+            
+            // Eliminar el item
+            item.remove();
+            
+            // Reindexar los inputs restantes (incluyendo IDs y labels)
+            const itemsRestantes = container.querySelectorAll('.franja-item');
+            itemsRestantes.forEach((itemRestante, index) => {
+                const nombreInput = itemRestante.querySelector('input[name^="deposito_nombre_"]');
+                const maxBusesInput = itemRestante.querySelector('input[name^="deposito_max_buses_"]');
+                const nombreLabel = itemRestante.querySelector('label[for^="deposito_nombre_"]');
+                const maxBusesLabel = itemRestante.querySelector('label[for^="deposito_max_buses_"]');
+                
+                if (nombreInput) {
+                    nombreInput.name = `deposito_nombre_${index}`;
+                    nombreInput.id = `deposito_nombre_${index}`;
+                }
+                if (maxBusesInput) {
+                    maxBusesInput.name = `deposito_max_buses_${index}`;
+                    maxBusesInput.id = `deposito_max_buses_${index}`;
+                }
+                if (nombreLabel) {
+                    nombreLabel.setAttribute('for', `deposito_nombre_${index}`);
+                }
+                if (maxBusesLabel) {
+                    maxBusesLabel.setAttribute('for', `deposito_max_buses_${index}`);
+                }
+            });
+            
+            // Actualizar el número de depósitos
+            numDepositosInput.value = itemsRestantes.length;
+            
+            // Si no quedan items, crear uno por defecto (no permitir 0)
+            if (itemsRestantes.length === 0) {
+                const nuevoItem = document.createElement('div');
+                nuevoItem.className = 'franja-item';
+                nuevoItem.style.marginBottom = '15px';
+                nuevoItem.style.padding = '15px';
+                nuevoItem.style.background = '#2d3748';
+                nuevoItem.style.borderRadius = '6px';
+                nuevoItem.style.border = '1px solid #4a5568';
+                nuevoItem.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; gap: 15px; flex: 1; align-items: center; flex-wrap: wrap;">
+                            <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
+                                <label for="deposito_nombre_0" style="font-size: 0.85em; color: #a0aec0; font-weight: bold;">Nombre del Depósito Base:</label>
+                                <input type="text" id="deposito_nombre_0" name="deposito_nombre_0" value="Deposito Principal" placeholder="Ej: Deposito Intermodal" required style="width: 100%; padding: 8px; background: #1a202c; border: 1px solid #4a5568; color: #e2e8f0; border-radius: 4px;">
+                            </div>
+                            <div class="form-group" style="margin: 0; width: 150px;">
+                                <label for="deposito_max_buses_0" style="font-size: 0.85em; color: #a0aec0; font-weight: bold;">Máximo buses:</label>
+                                <input type="number" id="deposito_max_buses_0" name="deposito_max_buses_0" value="200" min="1" required style="width: 100%; padding: 8px; background: #1a202c; border: 1px solid #4a5568; color: #e2e8f0; border-radius: 4px;">
+                            </div>
+                        </div>
+                        <button type="button" class="btn" onclick="eliminarDeposito(this)" style="padding: 8px 15px; font-size: 0.9em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                `;
+                container.appendChild(nuevoItem);
+                numDepositosInput.value = 1;
+            }
+        }
+
+        function toggleGruposLineas() {
+            const interlineadoGlobal = document.getElementById('interlineado_global');
+            const gruposContainer = document.getElementById('grupos-lineas-container');
+            const gruposEmpty = document.getElementById('grupos-lineas-empty');
+            const btnAgregar = document.getElementById('btn-agregar-grupo-linea');
+            
+            if (interlineadoGlobal.checked) {
+                gruposContainer.style.display = 'none';
+                gruposEmpty.style.display = 'none';
+                if (btnAgregar) btnAgregar.style.display = 'none';
+            } else {
+                gruposContainer.style.display = 'block';
+                if (btnAgregar) btnAgregar.style.display = 'inline-block';
+                // Mostrar empty solo si no hay grupos
+                const grupos = gruposContainer.querySelectorAll('.deposito-card[data-grupo-index]');
+                if (grupos.length === 0) {
+                    gruposEmpty.style.display = 'block';
+                } else {
+                    gruposEmpty.style.display = 'none';
+                }
+            }
+        }
+        
+        function agregarGrupoLinea() {
+            const container = document.getElementById('grupos-lineas-container');
+            const template = document.getElementById('grupo-linea-template');
+            const gruposEmpty = document.getElementById('grupos-lineas-empty');
+            
+            if (!container || !template) return;
+            
+            // Calcular próximo índice
+            const gruposExistentes = container.querySelectorAll('.deposito-card[data-grupo-index]');
+            let nextIndex = 0;
+            if (gruposExistentes.length > 0) {
+                const indices = Array.from(gruposExistentes).map(card => {
+                    const idx = parseInt(card.getAttribute('data-grupo-index') || '0', 10);
+                    return idx;
+                });
+                nextIndex = Math.max(...indices) + 1;
+            }
+            
+            // Obtener líneas disponibles desde el formulario
+            const lineasDisponibles = [];
+            const lineasInput = document.getElementById('lineas_catalogo');
+            if (lineasInput && lineasInput.value) {
+                lineasDisponibles.push(...lineasInput.value.split(',').map(l => l.trim()).filter(l => l));
+            }
+            
+            // Si no hay líneas en el input, intentar obtenerlas de los checkboxes existentes
+            if (lineasDisponibles.length === 0) {
+                const lineasCheckboxes = document.querySelectorAll('input[name^="linea_"][name$="_nombre"]');
+                lineasCheckboxes.forEach(input => {
+                    if (input.value) lineasDisponibles.push(input.value);
+                });
+            }
+            
+            // Crear el HTML del grupo
+            const markup = template.innerHTML.replace(/__INDEX__/g, nextIndex);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = markup.trim();
+            const nuevoGrupo = wrapper.firstElementChild;
+            const limiteGlobalInput = document.getElementById('limite_jornada');
+            const limiteGrupoInput = nuevoGrupo.querySelector(`input[name="grupo_limite_jornada[${nextIndex}]"]`);
+            if (limiteGrupoInput && limiteGlobalInput && limiteGlobalInput.value) {
+                limiteGrupoInput.value = limiteGlobalInput.value;
+            }
+            
+            // Llenar las líneas disponibles
+            const lineasContainer = nuevoGrupo.querySelector(`#lineas-grupo-${nextIndex}`);
+            if (lineasContainer && lineasDisponibles.length > 0) {
+                lineasContainer.innerHTML = '';
+                lineasDisponibles.forEach((linea, idx) => {
+                    const checkboxDiv = document.createElement('div');
+                    checkboxDiv.className = 'checkbox-wrapper';
+                    checkboxDiv.innerHTML = `
+                        <input type="checkbox" 
+                               name="grupos_lineas[${nextIndex}][${idx}]" 
+                               id="grupo_${nextIndex}_linea_${idx}"
+                               value="${linea}">
+                        <label for="grupo_${nextIndex}_linea_${idx}">${linea}</label>
+                    `;
+                    lineasContainer.appendChild(checkboxDiv);
+                });
+            }
+            
+            container.appendChild(nuevoGrupo);
+            gruposEmpty.style.display = 'none';
+            
+            // Agregar event listener para el botón de eliminar
+            const removeBtn = nuevoGrupo.querySelector('.btn-remove-grupo');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => eliminarGrupoLinea(nextIndex));
+            }
+        }
+        
+        function agregarTipoConductor() {
+            const container = document.getElementById('tipos-conductor-container');
+            const emptyEl = document.getElementById('tipos-conductor-empty');
+            if (emptyEl) emptyEl.remove();
+            const items = container.querySelectorAll('.tipo-conductor-item');
+            let nextIndex = 0;
+            if (items.length > 0) {
+                const indices = Array.from(items).map(el => {
+                    const m = el.getAttribute('data-tipo-index');
+                    return m != null ? parseInt(m, 10) : -1;
+                }).filter(i => i >= 0);
+                nextIndex = indices.length ? Math.max(...indices) + 1 : items.length;
+            }
+            const div = document.createElement('div');
+            div.className = 'franja-item tipo-conductor-item';
+            div.setAttribute('data-tipo-index', nextIndex);
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #3FA8FF;">Nuevo tipo</h4>
+                    <button type="button" class="btn" onclick="eliminarTipoConductor(this)" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        <i class="fas fa-trash"></i> Eliminar
+                    </button>
+                </div>
+                <input type="hidden" name="tipo_conductor_${nextIndex}_id" value="">
+                <div class="franja-grid">
+                    <div class="form-group">
+                        <label>Nombre / ID:</label>
+                        <input type="text" name="tipo_conductor_${nextIndex}_nombre" value="" placeholder="Ej: Nocturno, AM" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Ingreso desde (HH:MM):</label>
+                        <input type="text" name="tipo_conductor_${nextIndex}_ingreso_min" value="00:00" placeholder="00:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Ingreso hasta (HH:MM):</label>
+                        <input type="text" name="tipo_conductor_${nextIndex}_ingreso_max" value="02:59" placeholder="02:59">
+                    </div>
+                    <div class="form-group">
+                        <label>Fin jornada desde (HH:MM):</label>
+                        <input type="text" name="tipo_conductor_${nextIndex}_fin_min" value="07:00" placeholder="07:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Fin jornada hasta (HH:MM):</label>
+                        <input type="text" name="tipo_conductor_${nextIndex}_fin_max" value="20:00" placeholder="20:00">
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        function eliminarTipoConductor(btn) {
+            const container = document.getElementById('tipos-conductor-container');
+            const item = btn.closest('.tipo-conductor-item');
+            if (!item) return;
+            const items = container.querySelectorAll('.tipo-conductor-item');
+            if (items.length <= 1) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.id = 'tipos-conductor-empty';
+                emptyDiv.style.cssText = 'padding: 15px; background: #1a202c; border-radius: 6px; border: 1px dashed #4a5568; color: #a0aec0;';
+                emptyDiv.textContent = 'No hay tipos de conductor. Agregue al menos uno para restringir horarios de ingreso y fin de jornada.';
+                container.appendChild(emptyDiv);
+            }
+            item.remove();
+            reindexarTiposConductor();
+        }
+
+        function reindexarTiposConductor() {
+            const container = document.getElementById('tipos-conductor-container');
+            const items = container.querySelectorAll('.tipo-conductor-item');
+            items.forEach((item, index) => {
+                item.setAttribute('data-tipo-index', index);
+                item.querySelectorAll('input[name]').forEach(input => {
+                    const name = input.getAttribute('name');
+                    if (name) {
+                        const newName = name.replace(/tipo_conductor_\d+_/, `tipo_conductor_${index}_`);
+                        input.setAttribute('name', newName);
+                    }
+                });
+            });
+        }
+
+        function eliminarGrupoLinea(index) {
+            const container = document.getElementById('grupos-lineas-container');
+            const gruposEmpty = document.getElementById('grupos-lineas-empty');
+            const grupo = container.querySelector(`.deposito-card[data-grupo-index="${index}"]`);
+            
+            if (grupo) {
+                grupo.remove();
+                
+                // Verificar si quedan grupos
+                const gruposRestantes = container.querySelectorAll('.deposito-card[data-grupo-index]');
+                if (gruposRestantes.length === 0) {
+                    gruposEmpty.style.display = 'block';
+                }
+            }
+        }
+        
+        function inicializarGruposLineas() {
+            const container = document.getElementById('grupos-lineas-container');
+            if (!container) return;
+            
+            // Agregar event listeners a los botones de eliminar existentes
+            container.addEventListener('click', (event) => {
+                const removeBtn = event.target.closest('.btn-remove-grupo');
+                if (!removeBtn) return;
+                
+                const grupoCard = removeBtn.closest('.deposito-card[data-grupo-index]');
+                if (grupoCard) {
+                    const index = grupoCard.getAttribute('data-grupo-index');
+                    eliminarGrupoLinea(index);
+                }
+            });
+        }
+
+        function cerrarSesion() {
+            fetch('/logout', { method: 'POST' })
+                .finally(() => {
+                    window.location.href = '/login';
+                });
+        }
+
+        function renderUsuariosAdmin(users) {
+            const list = document.getElementById('admin-users-list');
+            if (!list) return;
+            if (!users || users.length === 0) {
+                list.innerHTML = '<div class="notification info"><i class="fas fa-info-circle"></i> No hay usuarios creados.</div>';
+                return;
+            }
+            list.innerHTML = users.map(u => `
+                <div class="deposito-card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                    <div>
+                        <strong>${u.username}</strong>
+                        ${u.is_admin ? '<span style="color:#3FA8FF;"> (Administrador)</span>' : ''}
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-primary" style="padding:6px 12px;font-size:.82em;" onclick="modificarUsuarioAdmin('${u.username}', ${u.is_admin ? 'true' : 'false'})">
+                            <i class="fas fa-user-edit"></i> Modificar
+                        </button>
+                        <button type="button" class="btn btn-warning" style="padding:6px 12px;font-size:.82em;" onclick="eliminarUsuarioAdmin('${u.username}')">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function cargarUsuariosAdmin() {
+            const msg = document.getElementById('admin-message');
+            fetch('/api/admin/users')
+                .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+                .then(({ ok, data }) => {
+                    if (!ok || !data.success) {
+                        if (msg) msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> ${data.message || 'No fue posible cargar usuarios.'}</div>`;
+                        return;
+                    }
+                    if (msg) msg.innerHTML = '';
+                    renderUsuariosAdmin(data.users || []);
+                })
+                .catch(err => {
+                    if (msg) msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> Error cargando usuarios: ${err.message}</div>`;
+                });
+        }
+
+        function crearUsuarioAdmin() {
+            const usernameInput = document.getElementById('admin-new-username');
+            const passwordInput = document.getElementById('admin-new-password');
+            const roleInput = document.getElementById('admin-new-role');
+            const msg = document.getElementById('admin-message');
+            if (!usernameInput || !passwordInput || !roleInput) return;
+
+            const payload = {
+                username: usernameInput.value.trim(),
+                password: passwordInput.value,
+                is_admin: roleInput.value === 'admin'
+            };
+
+            fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+            .then(({ ok, data }) => {
+                if (!ok || !data.success) {
+                    msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> ${data.message || 'No se pudo crear el usuario.'}</div>`;
+                    return;
+                }
+                msg.innerHTML = `<div class="notification success"><i class="fas fa-check-circle"></i> ${data.message}</div>`;
+                usernameInput.value = '';
+                passwordInput.value = '';
+                roleInput.value = 'user';
+                cargarUsuariosAdmin();
+            })
+            .catch(err => {
+                msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> Error creando usuario: ${err.message}</div>`;
+            });
+        }
+
+        function eliminarUsuarioAdmin(username) {
+            const msg = document.getElementById('admin-message');
+            if (!confirm(`¿Eliminar usuario "${username}"?`)) return;
+            fetch(`/api/admin/users/${encodeURIComponent(username)}`, { method: 'DELETE' })
+                .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+                .then(({ ok, data }) => {
+                    if (!ok || !data.success) {
+                        msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> ${data.message || 'No se pudo eliminar el usuario.'}</div>`;
+                        return;
+                    }
+                    msg.innerHTML = `<div class="notification success"><i class="fas fa-check-circle"></i> ${data.message}</div>`;
+                    cargarUsuariosAdmin();
+                })
+                .catch(err => {
+                    msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> Error eliminando usuario: ${err.message}</div>`;
+                });
+        }
+
+        function modificarUsuarioAdmin(username, isAdminActual) {
+            const msg = document.getElementById('admin-message');
+            const newUsername = (prompt(`Nuevo nombre de usuario para "${username}" (dejar igual para mantener):`, username) || '').trim();
+            if (!newUsername) return;
+            const newPassword = prompt(`Nueva contraseña para "${newUsername}" (dejar vacío para mantener la actual):`, '');
+            if (newPassword === null) return; // cancelado
+            const rolTexto = prompt(`Rol para "${newUsername}": escribe "admin" o "user"`, isAdminActual ? 'admin' : 'user');
+            if (rolTexto === null) return; // cancelado
+            const rolNorm = rolTexto.trim().toLowerCase();
+            if (rolNorm !== 'admin' && rolNorm !== 'user') {
+                msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> Rol inválido. Usa "admin" o "user".</div>`;
+                return;
+            }
+
+            fetch(`/api/admin/users/${encodeURIComponent(username)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    new_username: newUsername,
+                    password: newPassword,
+                    is_admin: rolNorm === 'admin'
+                })
+            })
+            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+            .then(({ ok, data }) => {
+                if (!ok || !data.success) {
+                    msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> ${data.message || 'No se pudo modificar el usuario.'}</div>`;
+                    return;
+                }
+                msg.innerHTML = `<div class="notification success"><i class="fas fa-check-circle"></i> ${data.message}</div>`;
+                cargarUsuariosAdmin();
+            })
+            .catch(err => {
+                msg.innerHTML = `<div class="notification error"><i class="fas fa-times-circle"></i> Error modificando usuario: ${err.message}</div>`;
+            });
+        }
+
+        function inicializarAdminUsuarios() {
+            const panel = document.getElementById('admin');
+            if (!panel) return;
+            cargarUsuariosAdmin();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializar num_depositos correctamente
+            const container = document.getElementById('depositos-container');
+            const numDepositosInput = document.getElementById('num_depositos');
+            if (container && numDepositosInput) {
+                const itemsExistentes = container.querySelectorAll('.franja-item');
+                const count = itemsExistentes.length > 0 ? itemsExistentes.length : 1;
+                numDepositosInput.value = count;
+                console.log('Inicializado num_depositos:', count, 'depósitos encontrados');
+            }
+            
+            inicializarGruposLineas();
+            toggleGruposLineas(); // Inicializar estado inicial
+            inicializarAdminUsuarios();
+        });
+    </script>
+</body>
+</html>
+
+
+

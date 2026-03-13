@@ -1,0 +1,8 @@
+# REGLAS DEL OPTIMIZADOR LOGÍSTICO
+1. Arquitectura: Respeta estrictamente el pipeline de 5 Fases. Nunca combines el cálculo del InS/FnS con la asignación base.
+2. Tiempos Físicos: NUNCA inventes tiempos de Desplazamiento o Vacío. Si el Gestor devuelve 0 o None, usa ese valor o marca un error de datos.
+3. No Mutar: No alteres listas de variables iterando sobre ellas con bucles while mutables si puedes usar list comprehensions o copias limpias.
+4. Límite de Jornada: La jornada física es la que indica la configuración. Esto es inquebrantable.
+5. Librerías: Usa Google OR-Tools para optimización de pares y diccionarios/sets de Python puros para mapeos rápidos.
+6. Respetar estrictamente las configuraciones, como tiempos de parada, tiempos de vacios, desplazamientos, puntos de relevo habilitados, grupos de lineas, plan de carga de buses electricos, jornadas, tipos de buses, tipos de conductor, jornada maxima de ingreso, etc, todas las configuraciones tambien deben verse en la web y verse en los templates descargadas completas.
+7. No quiero lineas extremadamente largas de codigo, quiero todo bien compacto, optimo, con una logica implacable, perfecta, corta y perfecta.

@@ -1,0 +1,12 @@
+{
+  "ccantero": {
+    "password_hash": "scrypt:32768:8:1$8sSTHBCo6Om1gLTT$e1abc66f6d6e2145f15c19d2db84612142264163992d26c1322b60899fab2482618b8f62afa22abd87164d44ce127de207f705cd50b2d09ed746560a6b7a962f",
+    "is_admin": true,
+    "created_at": "2026-03-13T14:35:10.001978"
+  },
+  "dlopez": {
+    "password_hash": "scrypt:32768:8:1$xmRH0pisPy8wsKSm$bcab1634e13317c097f2b6d3d428b08d9f5462afa1b797e8118ebfa1fbb2c389650d263044756e7d99e768078ab9b41c99d2d7b771668e2a9671e120d58aefdd",
+    "is_admin": false,
+    "created_at": "2026-03-13T14:35:10.102455"
+  }
+}

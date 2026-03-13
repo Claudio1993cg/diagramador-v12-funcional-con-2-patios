@@ -1,0 +1,599 @@
+{
+  "deposito": "Deposito Aguirre Luco",
+  "limite_jornada": 600,
+  "tiempo_toma": 15,
+  "nodos": [
+    "AGUIRRE LUCO",
+    "DORSAL",
+    "ESCUELA MILITAR",
+    "LIBERTADORES",
+    "VESPUCIO"
+  ],
+  "vacios": {
+    "AGUIRRE LUCO_DORSAL": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "AGUIRRE LUCO_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 1.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "AGUIRRE LUCO_ESCUELA MILITAR": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "AGUIRRE LUCO_LIBERTADORES": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "AGUIRRE LUCO_VESPUCIO": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "DORSAL_AGUIRRE LUCO": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "DORSAL_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 15.0,
+          "km": 3.75
+        }
+      ]
+    },
+    "DORSAL_ESCUELA MILITAR": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 45.0,
+          "km": 18.62
+        }
+      ]
+    },
+    "DORSAL_LIBERTADORES": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "DORSAL_VESPUCIO": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "Deposito Aguirre Luco_AGUIRRE LUCO": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 1.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "Deposito Aguirre Luco_DORSAL": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 15.0,
+          "km": 3.18
+        }
+      ]
+    },
+    "Deposito Aguirre Luco_ESCUELA MILITAR": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 10.4
+        }
+      ]
+    },
+    "Deposito Aguirre Luco_LIBERTADORES": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 20.0,
+          "km": 4.83
+        }
+      ]
+    },
+    "Deposito Aguirre Luco_VESPUCIO": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 15.0,
+          "km": 2.25
+        }
+      ]
+    },
+    "ESCUELA MILITAR_AGUIRRE LUCO": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "ESCUELA MILITAR_DORSAL": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 45.0,
+          "km": 18.65
+        }
+      ]
+    },
+    "ESCUELA MILITAR_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 10.6
+        }
+      ]
+    },
+    "ESCUELA MILITAR_LIBERTADORES": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "ESCUELA MILITAR_VESPUCIO": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "LIBERTADORES_AGUIRRE LUCO": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "LIBERTADORES_DORSAL": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "LIBERTADORES_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 20.0,
+          "km": 7.5
+        }
+      ]
+    },
+    "LIBERTADORES_ESCUELA MILITAR": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "LIBERTADORES_VESPUCIO": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "VESPUCIO_AGUIRRE LUCO": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "VESPUCIO_DORSAL": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "VESPUCIO_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 15.0,
+          "km": 2.9
+        }
+      ]
+    },
+    "VESPUCIO_ESCUELA MILITAR": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "VESPUCIO_LIBERTADORES": {
+      "habilitado": false,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 0.0,
+          "km": 0.0
+        }
+      ]
+    }
+  },
+  "desplazamientos": {
+    "AGUIRRE LUCO_DORSAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "AGUIRRE LUCO_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "tiempo": 1.0
+    },
+    "AGUIRRE LUCO_ESCUELA MILITAR": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "AGUIRRE LUCO_LIBERTADORES": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "AGUIRRE LUCO_VESPUCIO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "DORSAL_AGUIRRE LUCO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "DORSAL_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "tiempo": 30.0
+    },
+    "DORSAL_ESCUELA MILITAR": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "DORSAL_LIBERTADORES": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "DORSAL_VESPUCIO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "Deposito Aguirre Luco_AGUIRRE LUCO": {
+      "habilitado": true,
+      "tiempo": 1.0
+    },
+    "Deposito Aguirre Luco_DORSAL": {
+      "habilitado": true,
+      "tiempo": 30.0
+    },
+    "Deposito Aguirre Luco_ESCUELA MILITAR": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "Deposito Aguirre Luco_LIBERTADORES": {
+      "habilitado": true,
+      "tiempo": 45.0
+    },
+    "Deposito Aguirre Luco_VESPUCIO": {
+      "habilitado": true,
+      "tiempo": 45.0
+    },
+    "ESCUELA MILITAR_AGUIRRE LUCO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "ESCUELA MILITAR_DORSAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "ESCUELA MILITAR_Deposito Aguirre Luco": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "ESCUELA MILITAR_LIBERTADORES": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "ESCUELA MILITAR_VESPUCIO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBERTADORES_AGUIRRE LUCO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBERTADORES_DORSAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBERTADORES_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "tiempo": 45.0
+    },
+    "LIBERTADORES_ESCUELA MILITAR": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBERTADORES_VESPUCIO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "VESPUCIO_AGUIRRE LUCO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "VESPUCIO_DORSAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "VESPUCIO_Deposito Aguirre Luco": {
+      "habilitado": true,
+      "tiempo": 45.0
+    },
+    "VESPUCIO_ESCUELA MILITAR": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "VESPUCIO_LIBERTADORES": {
+      "habilitado": false,
+      "tiempo": 0.0
+    }
+  },
+  "paradas": {
+    "AGUIRRE LUCO": {
+      "min": 5,
+      "max": 40
+    },
+    "DORSAL": {
+      "min": 0,
+      "max": 20
+    },
+    "ESCUELA MILITAR": {
+      "min": 0,
+      "max": 20
+    },
+    "LIBERTADORES": {
+      "min": 3,
+      "max": 40
+    },
+    "VESPUCIO": {
+      "min": 3,
+      "max": 40
+    }
+  },
+  "puntos_relevo": [
+    "AGUIRRE LUCO",
+    "DORSAL",
+    "LIBERTADORES",
+    "VESPUCIO"
+  ],
+  "tipos_bus": {
+    "A": {},
+    "B": {},
+    "BE": {
+      "parametros_electricos": {
+        "carga_inicial": 95.0,
+        "consumo_por_km": 0.5,
+        "limite_operacion": 30.0,
+        "min_entrada_recarga": 60.0,
+        "max_entrada_recarga": 80.0,
+        "tasa_recarga_por_minuto": 1.25,
+        "ventana_recarga": {
+          "inicio": "09:00",
+          "fin": "18:00"
+        }
+      }
+    },
+    "BPAL": {}
+  },
+  "lineas": {
+    "B02": {
+      "tipos_permitidos": [
+        "BPAL"
+      ]
+    },
+    "B02N": {
+      "tipos_permitidos": [
+        "BPAL"
+      ]
+    },
+    "B04": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "B19": {
+      "tipos_permitidos": [
+        "A"
+      ]
+    },
+    "B33": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "C18": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    }
+  },
+  "depositos": [
+    {
+      "nombre": "Deposito Aguirre Luco",
+      "max_buses": 59,
+      "permite_recarga": false,
+      "posiciones_recarga": 0,
+      "flota_por_tipo": {
+        "A": 6,
+        "B": 43,
+        "BE": 0,
+        "BPAL": 16,
+        "C": 0
+      }
+    }
+  ],
+  "flota_por_tipo": {
+    "A": 6,
+    "B": 43,
+    "BE": 0,
+    "BPAL": 16,
+    "C": 0
+  },
+  "tipos_conductor": [],
+  "interlineado_global": false,
+  "grupos_lineas": {
+    "Grupo_0": [
+      "B02",
+      "B02N"
+    ],
+    "Grupo_1": [
+      "B04",
+      "B33"
+    ],
+    "Grupo_2": [
+      "B19"
+    ],
+    "Grupo_3": [
+      "C18"
+    ]
+  },
+  "limite_jornada_por_grupo_linea": {
+    "Grupo_0": 720,
+    "Grupo_1": 600,
+    "Grupo_2": 600,
+    "Grupo_3": 600
+  },
+  "max_inicio_jornada_conductor": "19:00",
+  "fase_3_union_conductores": {
+    "union_solo_por_deposito": false,
+    "parada_larga_umbral_union": 60,
+    "parada_larga_excepcion_depot_min": 120,
+    "max_rondas_union": 1500,
+    "timeout_ortools_segundos": 180
+  }
+}

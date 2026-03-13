@@ -1,0 +1,1 @@
+from .eventos_completos import construir_eventos_completos

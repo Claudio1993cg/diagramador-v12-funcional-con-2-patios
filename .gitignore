@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+
+# Resultados y logs locales
+diagramador_optimizado/resultado_diagramacion.xlsx
+diagramador_optimizado/regression_outputs/
+*.log
+log_app_web.txt
+
+# Secrets/env locales
+.env
+.env

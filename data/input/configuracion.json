@@ -1,0 +1,796 @@
+{
+  "deposito": "Deposito Juanita",
+  "limite_jornada": 600,
+  "tiempo_toma": 15,
+  "max_buses": 50,
+  "nodos": [
+    "INTERMODAL",
+    "JUANITA",
+    "LIBANO",
+    "MONEDA",
+    "PLAZA PUENTE",
+    "PURISIMA",
+    "TORCON"
+  ],
+  "vacios": {
+    "Deposito Juanita_INTERMODAL": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 14.8
+        }
+      ]
+    },
+    "Deposito Juanita_JUANITA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 1.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "Deposito Juanita_LIBANO": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 18.0
+        }
+      ]
+    },
+    "Deposito Juanita_MONEDA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 60.0,
+          "km": 24.3
+        }
+      ]
+    },
+    "Deposito Juanita_PLAZA PUENTE": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 30.0,
+          "km": 5.7
+        }
+      ]
+    },
+    "Deposito Juanita_PURISIMA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 60.0,
+          "km": 26.63
+        }
+      ]
+    },
+    "Deposito Juanita_TORCON": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 25.0,
+          "km": 10.2
+        }
+      ]
+    },
+    "INTERMODAL_Deposito Juanita": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 15.4
+        }
+      ]
+    },
+    "INTERMODAL_JUANITA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 15.4
+        }
+      ]
+    },
+    "INTERMODAL_LIBANO": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "INTERMODAL_MONEDA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "INTERMODAL_PLAZA PUENTE": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "INTERMODAL_PURISIMA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "INTERMODAL_TORCON": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "JUANITA_Deposito Juanita": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 1.0,
+          "km": 0.0
+        }
+      ]
+    },
+    "JUANITA_INTERMODAL": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 14.8
+        }
+      ]
+    },
+    "JUANITA_LIBANO": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 18.0
+        }
+      ]
+    },
+    "JUANITA_MONEDA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 60.0,
+          "km": 24.3
+        }
+      ]
+    },
+    "JUANITA_PLAZA PUENTE": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 30.0,
+          "km": 5.7
+        }
+      ]
+    },
+    "JUANITA_PURISIMA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 60.0,
+          "km": 26.63
+        }
+      ]
+    },
+    "JUANITA_TORCON": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 25.0,
+          "km": 10.2
+        }
+      ]
+    },
+    "LIBANO_Deposito Juanita": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 17.6
+        }
+      ]
+    },
+    "LIBANO_INTERMODAL": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "LIBANO_JUANITA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 50.0,
+          "km": 17.6
+        }
+      ]
+    },
+    "LIBANO_MONEDA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "LIBANO_PLAZA PUENTE": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "LIBANO_PURISIMA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "LIBANO_TORCON": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "MONEDA_Deposito Juanita": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 60.0,
+          "km": 24.3
+        }
+      ]
+    },
+    "MONEDA_INTERMODAL": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "MONEDA_JUANITA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 60.0,
+          "km": 24.3
+        }
+      ]
+    },
+    "MONEDA_LIBANO": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "MONEDA_PLAZA PUENTE": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "MONEDA_PURISIMA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "MONEDA_TORCON": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PLAZA PUENTE_Deposito Juanita": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 30.0,
+          "km": 6.47
+        }
+      ]
+    },
+    "PLAZA PUENTE_INTERMODAL": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PLAZA PUENTE_JUANITA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 30.0,
+          "km": 6.47
+        }
+      ]
+    },
+    "PLAZA PUENTE_LIBANO": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PLAZA PUENTE_MONEDA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PLAZA PUENTE_PURISIMA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PLAZA PUENTE_TORCON": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PURISIMA_Deposito Juanita": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 60.0,
+          "km": 26.63
+        }
+      ]
+    },
+    "PURISIMA_INTERMODAL": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PURISIMA_JUANITA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 60.0,
+          "km": 26.63
+        }
+      ]
+    },
+    "PURISIMA_LIBANO": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PURISIMA_MONEDA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PURISIMA_PLAZA PUENTE": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "PURISIMA_TORCON": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "TORCON_Deposito Juanita": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 25.0,
+          "km": 12.6
+        }
+      ]
+    },
+    "TORCON_INTERMODAL": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "TORCON_JUANITA": {
+      "habilitado": true,
+      "franjas": [
+        {
+          "inicio": "00:00",
+          "fin": "40:00",
+          "tiempo": 25.0,
+          "km": 12.6
+        }
+      ]
+    },
+    "TORCON_LIBANO": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "TORCON_MONEDA": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "TORCON_PLAZA PUENTE": {
+      "habilitado": false,
+      "franjas": []
+    },
+    "TORCON_PURISIMA": {
+      "habilitado": false,
+      "franjas": []
+    }
+  },
+  "desplazamientos": {
+    "Deposito Juanita_INTERMODAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "Deposito Juanita_JUANITA": {
+      "habilitado": true,
+      "tiempo": 1.0
+    },
+    "Deposito Juanita_LIBANO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "Deposito Juanita_MONEDA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "Deposito Juanita_PLAZA PUENTE": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "Deposito Juanita_PURISIMA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "Deposito Juanita_TORCON": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "INTERMODAL_Deposito Juanita": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "INTERMODAL_JUANITA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "INTERMODAL_LIBANO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "INTERMODAL_MONEDA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "INTERMODAL_PLAZA PUENTE": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "INTERMODAL_PURISIMA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "INTERMODAL_TORCON": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "JUANITA_Deposito Juanita": {
+      "habilitado": true,
+      "tiempo": 1.0
+    },
+    "JUANITA_INTERMODAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "JUANITA_LIBANO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "JUANITA_MONEDA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "JUANITA_PLAZA PUENTE": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "JUANITA_PURISIMA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "JUANITA_TORCON": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBANO_Deposito Juanita": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBANO_INTERMODAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBANO_JUANITA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBANO_MONEDA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBANO_PLAZA PUENTE": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBANO_PURISIMA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "LIBANO_TORCON": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "MONEDA_Deposito Juanita": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "MONEDA_INTERMODAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "MONEDA_JUANITA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "MONEDA_LIBANO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "MONEDA_PLAZA PUENTE": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "MONEDA_PURISIMA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "MONEDA_TORCON": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PLAZA PUENTE_Deposito Juanita": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PLAZA PUENTE_INTERMODAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PLAZA PUENTE_JUANITA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PLAZA PUENTE_LIBANO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PLAZA PUENTE_MONEDA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PLAZA PUENTE_PURISIMA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PLAZA PUENTE_TORCON": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PURISIMA_Deposito Juanita": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PURISIMA_INTERMODAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PURISIMA_JUANITA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PURISIMA_LIBANO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PURISIMA_MONEDA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PURISIMA_PLAZA PUENTE": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "PURISIMA_TORCON": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "TORCON_Deposito Juanita": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "TORCON_INTERMODAL": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "TORCON_JUANITA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "TORCON_LIBANO": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "TORCON_MONEDA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "TORCON_PLAZA PUENTE": {
+      "habilitado": false,
+      "tiempo": 0.0
+    },
+    "TORCON_PURISIMA": {
+      "habilitado": false,
+      "tiempo": 0.0
+    }
+  },
+  "paradas": {
+    "INTERMODAL": {
+      "min": 5,
+      "max": 25
+    },
+    "JUANITA": {
+      "min": 10,
+      "max": 60
+    },
+    "LIBANO": {
+      "min": 5,
+      "max": 25
+    },
+    "MONEDA": {
+      "min": 5,
+      "max": 30
+    },
+    "PLAZA PUENTE": {
+      "min": 5,
+      "max": 25
+    },
+    "PURISIMA": {
+      "min": 5,
+      "max": 30
+    },
+    "TORCON": {
+      "min": 5,
+      "max": 25
+    }
+  },
+  "tipos_bus": {
+    "B": {
+      "descripcion": "Rigido (Petrolero)",
+      "autonomia_km": 200.0,
+      "capacidad_pasajeros": 90
+    },
+    "BE": {
+      "parametros_electricos": {
+        "carga_inicial": 95.0,
+        "consumo_por_km": 0.5,
+        "limite_operacion": 30.0,
+        "min_entrada_recarga": 60.0,
+        "max_entrada_recarga": 80.0,
+        "tasa_recarga_por_minuto": 1.25,
+        "ventana_recarga": {
+          "inicio": "09:00",
+          "fin": "18:00"
+        }
+      }
+    }
+  },
+  "lineas": {
+    "124": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "213e": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F10c": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F12": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F12c": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F15": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F18": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F25": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F25e": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F30N": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    },
+    "F33": {
+      "tipos_permitidos": [
+        "B"
+      ]
+    }
+  },
+  "depositos": [
+    {
+      "nombre": "Deposito Juanita",
+      "max_buses": 143,
+      "permite_recarga": false,
+      "posiciones_recarga": 0,
+      "flota_por_tipo": {
+        "A": 0,
+        "B": 0,
+        "BE": 0,
+        "BPAL": 0,
+        "C": 0
+      }
+    }
+  ],
+  "flota_por_tipo": {
+    "A": 0,
+    "B": 0,
+    "BE": 0,
+    "BPAL": 0,
+    "C": 0
+  },
+  "interlineado_global": false,
+  "grupos_lineas": {
+    "Grupo_0": [
+      "124",
+      "213e",
+      "F10c",
+      "F12",
+      "F12c",
+      "F15",
+      "F18",
+      "F25",
+      "F25e",
+      "F30N",
+      "F33"
+    ]
+  },
+  "modo_verbose": true
+}
