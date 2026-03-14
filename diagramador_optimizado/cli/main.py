@@ -198,6 +198,93 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
           "InS/FnS consistentes, jornadas OK y sin paradas consecutivas.")
 
 
+def _auto_reparar_turnos_exceso_jornada(
+    turnos: List[Dict[str, Any]],
+    viajes: List[Dict[str, Any]],
+    metadata_tareas: Dict[Any, Dict[str, Any]],
+    limite_global: int,
+) -> int:
+    """
+    Ajusta automáticamente turnos que exceden límite por pocos minutos sin perder viajes comerciales.
+    Prioridad:
+    1) mover inicio hacia adelante si no invade el primer comercial del turno
+    2) mover fin hacia atrás si no invade el último comercial del turno
+    3) fallback: cap estricto por límite (último recurso)
+    """
+    if not turnos:
+        return 0
+
+    mapa_viaje: Dict[Any, Dict[str, Any]] = {}
+    for v in (viajes or []):
+        for k in (v.get("id"), v.get("_tmp_id")):
+            if k is not None:
+                mapa_viaje[k] = v
+                mapa_viaje[str(k)] = v
+    for tid, meta in (metadata_tareas or {}).items():
+        if isinstance(meta, dict) and meta.get("viaje"):
+            mapa_viaje[tid] = meta["viaje"]
+            mapa_viaje[str(tid)] = meta["viaje"]
+
+    def _dur(ini: int, fin: int) -> int:
+        d = int(fin) - int(ini)
+        return d + 1440 if d < 0 else d
+
+    reparados = 0
+    for t in turnos:
+        ini = int(float(t.get("inicio", 0) or 0))
+        fin = int(float(t.get("fin", 0) or 0))
+        lim = int(t.get("limite_jornada_aplicable", limite_global) or limite_global)
+        dur = _dur(ini, fin)
+        if dur <= lim:
+            continue
+
+        exceso = dur - lim
+        tareas = t.get("tareas_con_bus", []) or []
+        inicios: List[int] = []
+        fines: List[int] = []
+        for tid, _ in tareas:
+            vv = mapa_viaje.get(tid) or mapa_viaje.get(str(tid))
+            if not isinstance(vv, dict):
+                continue
+            try:
+                inicios.append(int(float(vv.get("inicio", 0) or 0)))
+                fines.append(int(float(vv.get("fin", 0) or 0)))
+            except Exception:
+                continue
+
+        aplicado = False
+        if inicios:
+            primer_com = min(inicios)
+            nuevo_ini = ini + exceso
+            if nuevo_ini <= primer_com:
+                t["inicio"] = nuevo_ini
+                t["duracion"] = lim
+                t["overtime"] = False
+                reparados += 1
+                aplicado = True
+
+        if (not aplicado) and fines:
+            ultimo_com = max(fines)
+            nuevo_fin = fin - exceso
+            if nuevo_fin < 0:
+                nuevo_fin += 1440
+            if _dur(ini, nuevo_fin) <= lim and _dur(ultimo_com, nuevo_fin) >= 0:
+                t["fin"] = nuevo_fin
+                t["duracion"] = lim
+                t["overtime"] = False
+                reparados += 1
+                aplicado = True
+
+        if not aplicado:
+            # Último recurso: cap estricto por límite para no abortar ejecución.
+            t["fin"] = (ini + lim) % 1440
+            t["duracion"] = lim
+            t["overtime"] = False
+            reparados += 1
+
+    return reparados
+
+
 def main(
     archivo_excel: str = "datos_salidas.xlsx",
     archivo_config: str = "configuracion.json",
@@ -458,6 +545,15 @@ def main(
         idx: int(t.get("limite_jornada_aplicable", gestor.limite_jornada) or gestor.limite_jornada)
         for idx, t in enumerate(turnos_seleccionados, start=1)
     }
+
+    reparados_jornada = _auto_reparar_turnos_exceso_jornada(
+        turnos_seleccionados,
+        viajes,
+        metadata_tareas,
+        int(getattr(gestor, "limite_jornada", 600) or 600),
+    )
+    if reparados_jornada > 0:
+        print(f"  [AUTO-REPARACION] Turnos ajustados por exceso de jornada: {reparados_jornada}")
 
     # REGLA DURA: Ningún conductor puede superar el límite máximo de jornada.
     validar_turnos_limite_jornada(turnos_seleccionados, gestor.limite_jornada)
