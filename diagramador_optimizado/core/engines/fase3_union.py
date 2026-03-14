@@ -391,6 +391,19 @@ def _pueden_unirse(
             f"jornada combinada estricta {duracion_strict} min > límite {limite_jornada} min",
             descanso,
         )
+    # Reglas de salida/exportación validan por span inicio->fin de turno.
+    # Si el span supera el límite, no permitir la unión aunque la métrica estricta cierre.
+    try:
+        ini_union = int(ta.get("inicio", inicio_efectivo_a) or inicio_efectivo_a)
+        fin_union = int(tb.get("fin", inicio_efectivo_b) or inicio_efectivo_b)
+        span_union = duracion_minutos(ini_union, fin_union)
+    except Exception:
+        span_union = None
+    if span_union is not None and span_union > limite_jornada:
+        return _rechazo(
+            f"span de jornada combinada {span_union} min > límite {limite_jornada} min",
+            descanso,
+        )
 
     deposito = gestor.deposito_base
     nodo_fin_a = _nodo_fin_turno(ta, deposito)
@@ -690,6 +703,14 @@ def _turno_unido_es_consistente(
         return _fallo("jornada estricta: no se pudo calcular duración")
     if dur_strict > limite:
         return _fallo(f"jornada estricta {dur_strict} min > límite {limite} min")
+    try:
+        ini_merged = int(merged.get("inicio", 0) or 0)
+        fin_merged = int(merged.get("fin", 0) or 0)
+        dur_span = duracion_minutos(ini_merged, fin_merged)
+    except Exception:
+        dur_span = None
+    if dur_span is not None and dur_span > limite:
+        return _fallo(f"span de jornada {dur_span} min > límite {limite} min")
 
     return True
 

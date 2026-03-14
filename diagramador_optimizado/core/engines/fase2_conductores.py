@@ -758,9 +758,26 @@ def resolver_diagramacion_conductores(
             turnos_con_limite.append(t)
     turnos = turnos_con_limite
 
-    # REGLA DURA (tope final): cada turno queda con inicio/fin normalizados y duracion <= su límite aplicable.
-    for t in turnos:
-        _aplicar_tope_jornada_turno(t, int(t.get("limite_jornada_aplicable", limite_jornada)))
+    # REGLA DURA: NO capar inicio/fin de forma artificial.
+    # Si un turno sigue excediendo su límite después de _forzar_limite_jornada,
+    # se rechaza para que el flujo pruebe otra combinación válida.
+    violaciones_limite: List[Tuple[int, int, int, int]] = []
+    for idx, t in enumerate(turnos, start=1):
+        lim_t = int(t.get("limite_jornada_aplicable", limite_jornada) or limite_jornada)
+        ini_t = int(t.get("inicio", 0) or 0)
+        fin_t = int(t.get("fin", 0) or 0)
+        dur_t = duracion_minutos(ini_t, fin_t)
+        if dur_t > lim_t:
+            violaciones_limite.append((idx, ini_t, fin_t, dur_t))
+    if violaciones_limite:
+        muestra = "\n".join(
+            f"  Turno {i}: inicio={ini}, fin={fin}, dur={dur} (lim={int(turnos[i-1].get('limite_jornada_aplicable', limite_jornada) or limite_jornada)})"
+            for i, ini, fin, dur in violaciones_limite[:10]
+        )
+        raise ValueError(
+            "[FASE 2 - REGLA DURA] Se generaron turnos fuera de límite sin permitir cap artificial.\n"
+            + muestra
+        )
 
     ids_com_str = ids_viajes | {str(v) for v in ids_viajes}
     ids_meta = {tid for tid in metadata_tareas} | {str(tid) for tid in metadata_tareas}

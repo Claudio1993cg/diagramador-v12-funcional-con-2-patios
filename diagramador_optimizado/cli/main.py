@@ -198,93 +198,6 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
           "InS/FnS consistentes, jornadas OK y sin paradas consecutivas.")
 
 
-def _auto_reparar_turnos_exceso_jornada(
-    turnos: List[Dict[str, Any]],
-    viajes: List[Dict[str, Any]],
-    metadata_tareas: Dict[Any, Dict[str, Any]],
-    limite_global: int,
-) -> int:
-    """
-    Ajusta automáticamente turnos que exceden límite por pocos minutos sin perder viajes comerciales.
-    Prioridad:
-    1) mover inicio hacia adelante si no invade el primer comercial del turno
-    2) mover fin hacia atrás si no invade el último comercial del turno
-    3) fallback: cap estricto por límite (último recurso)
-    """
-    if not turnos:
-        return 0
-
-    mapa_viaje: Dict[Any, Dict[str, Any]] = {}
-    for v in (viajes or []):
-        for k in (v.get("id"), v.get("_tmp_id")):
-            if k is not None:
-                mapa_viaje[k] = v
-                mapa_viaje[str(k)] = v
-    for tid, meta in (metadata_tareas or {}).items():
-        if isinstance(meta, dict) and meta.get("viaje"):
-            mapa_viaje[tid] = meta["viaje"]
-            mapa_viaje[str(tid)] = meta["viaje"]
-
-    def _dur(ini: int, fin: int) -> int:
-        d = int(fin) - int(ini)
-        return d + 1440 if d < 0 else d
-
-    reparados = 0
-    for t in turnos:
-        ini = int(float(t.get("inicio", 0) or 0))
-        fin = int(float(t.get("fin", 0) or 0))
-        lim = int(t.get("limite_jornada_aplicable", limite_global) or limite_global)
-        dur = _dur(ini, fin)
-        if dur <= lim:
-            continue
-
-        exceso = dur - lim
-        tareas = t.get("tareas_con_bus", []) or []
-        inicios: List[int] = []
-        fines: List[int] = []
-        for tid, _ in tareas:
-            vv = mapa_viaje.get(tid) or mapa_viaje.get(str(tid))
-            if not isinstance(vv, dict):
-                continue
-            try:
-                inicios.append(int(float(vv.get("inicio", 0) or 0)))
-                fines.append(int(float(vv.get("fin", 0) or 0)))
-            except Exception:
-                continue
-
-        aplicado = False
-        if inicios:
-            primer_com = min(inicios)
-            nuevo_ini = ini + exceso
-            if nuevo_ini <= primer_com:
-                t["inicio"] = nuevo_ini
-                t["duracion"] = lim
-                t["overtime"] = False
-                reparados += 1
-                aplicado = True
-
-        if (not aplicado) and fines:
-            ultimo_com = max(fines)
-            nuevo_fin = fin - exceso
-            if nuevo_fin < 0:
-                nuevo_fin += 1440
-            if _dur(ini, nuevo_fin) <= lim and _dur(ultimo_com, nuevo_fin) >= 0:
-                t["fin"] = nuevo_fin
-                t["duracion"] = lim
-                t["overtime"] = False
-                reparados += 1
-                aplicado = True
-
-        if not aplicado:
-            # Último recurso: cap estricto por límite para no abortar ejecución.
-            t["fin"] = (ini + lim) % 1440
-            t["duracion"] = lim
-            t["overtime"] = False
-            reparados += 1
-
-    return reparados
-
-
 def main(
     archivo_excel: str = "datos_salidas.xlsx",
     archivo_config: str = "configuracion.json",
@@ -366,6 +279,15 @@ def main(
     modo_verbose = bool(config.get("modo_verbose", False))
     opt_iter = config.get("optimizacion_iterativa", {}) or {}
     max_iter = int(opt_iter.get("max_iteraciones", 1))
+    # Por defecto NO repetir búsquedas: cortar en la primera solución válida.
+    buscar_mejor_solucion = bool(opt_iter.get("buscar_mejor_solucion", False))
+    max_reintentos_jornada = int(opt_iter.get("max_reintentos_jornada", 3))
+    if not buscar_mejor_solucion:
+        max_iter = 1
+        max_reintentos_jornada = 0
+    total_intentos = max_iter + max(0, max_reintentos_jornada)
+    ultima_firma_error = ""
+    repeticiones_mismo_error = 0
 
     mejor_turnos = None
     mejor_bloques = None
@@ -374,10 +296,13 @@ def main(
     mejor_status_f1 = mejor_status_f2 = mejor_status_f3 = ""
     mejor_conteo = 999999
 
-    for iteracion in range(max_iter):
+    for iteracion in range(total_intentos):
         seed_actual = (random_seed or 42) + iteracion * 1000
-        if max_iter > 1:
+        if iteracion < max_iter and max_iter > 1:
             print(f"\n--- Iteración {iteracion + 1}/{max_iter} (seed={seed_actual}) ---")
+        elif iteracion >= max_iter:
+            extra_idx = iteracion - max_iter + 1
+            print(f"\n--- Reintento automático por validez de jornada {extra_idx}/{max_reintentos_jornada} (seed={seed_actual}) ---")
 
         # Flujo: Fase 1 -> Fase 2 -> Fase 3.
         try:
@@ -445,8 +370,19 @@ def main(
                     f"[FASE 3 - REGLA DURA] Fase 3 aumentó turnos: {n_turnos_fase2} -> {n_turnos_fase3}. "
                     "Fase 3 solo puede mantener o reducir."
                 )
+            # REGLA DURA: no aceptar combinaciones que superen límite jornada.
+            validar_turnos_limite_jornada(turnos_seleccionados, gestor.limite_jornada)
         except Exception as e:
             print(f"[ERROR] Error en Fase 3: {e}")
+            firma = str(e).strip()
+            if firma and firma == ultima_firma_error:
+                repeticiones_mismo_error += 1
+            else:
+                ultima_firma_error = firma
+                repeticiones_mismo_error = 1
+            if repeticiones_mismo_error >= 3:
+                print("[ERROR] Mismo error de validez repetido 3 veces. Se detiene para evitar bucle.")
+                break
             if iteracion == 0:
                 import traceback
                 traceback.print_exc()
@@ -462,9 +398,16 @@ def main(
             mejor_status_f1, mejor_status_f2, mejor_status_f3 = status_f1, status_f2, status_f3
             if max_iter > 1:
                 print(f"  [OK] Nueva mejor solución: {conteo} conductores")
+        # Modo normal: cortar en la primera solución válida para evitar ciclos.
+        # Modo búsqueda de mejor solución: correr hasta max_iter y luego cortar.
+        if mejor_turnos is not None and (not buscar_mejor_solucion or iteracion >= (max_iter - 1)):
+            break
 
     if mejor_turnos is None:
-        print("[ERROR] No se pudo generar ninguna solución válida.")
+        print(
+            "[ERROR] No se pudo generar ninguna solución válida sin violar límites de jornada "
+            f"tras {total_intentos} intentos."
+        )
         return
 
     turnos_seleccionados = mejor_turnos
@@ -545,15 +488,6 @@ def main(
         idx: int(t.get("limite_jornada_aplicable", gestor.limite_jornada) or gestor.limite_jornada)
         for idx, t in enumerate(turnos_seleccionados, start=1)
     }
-
-    reparados_jornada = _auto_reparar_turnos_exceso_jornada(
-        turnos_seleccionados,
-        viajes,
-        metadata_tareas,
-        int(getattr(gestor, "limite_jornada", 600) or 600),
-    )
-    if reparados_jornada > 0:
-        print(f"  [AUTO-REPARACION] Turnos ajustados por exceso de jornada: {reparados_jornada}")
 
     # REGLA DURA: Ningún conductor puede superar el límite máximo de jornada.
     validar_turnos_limite_jornada(turnos_seleccionados, gestor.limite_jornada)
