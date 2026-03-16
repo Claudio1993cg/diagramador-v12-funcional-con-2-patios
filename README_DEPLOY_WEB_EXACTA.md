@@ -28,6 +28,21 @@ Render usará:
 - Admin: `ccantero` / `Juacko1993`
 - Usuario: `dlopez` / `Lopez2803`
 
+## 5) Evitar cold starts (opcional pero recomendado)
+
+El plan free de Render duerme el servicio tras ~15 min sin tráfico. Al despertar tarda ~1 minuto.
+
+**Solución gratuita:** Usar UptimeRobot para hacer ping cada 5 minutos.
+
+1. Entra a [https://uptimerobot.com](https://uptimerobot.com) y crea cuenta gratis.
+2. **Add New Monitor**
+3. Configura:
+   - **Monitor Type:** HTTP(s)
+   - **Friendly Name:** Diagramador Web
+   - **URL:** `https://diagramador-v12-web.onrender.com/healthz`
+   - **Monitoring Interval:** 5 minutes
+4. Guarda. Con eso la app se mantiene despierta y responde rápido siempre.
+
 ## Nota importante
 
 El plan free puede “dormirse” por inactividad y tardar en despertar.  

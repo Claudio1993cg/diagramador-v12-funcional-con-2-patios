@@ -3,6 +3,9 @@ services:
     name: diagramador-v12-web
     env: python
     plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.11"
     healthCheckPath: /healthz
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --workers 1 --threads 8 --timeout 600 --bind 0.0.0.0:$PORT
