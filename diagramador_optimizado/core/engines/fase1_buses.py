@@ -436,12 +436,18 @@ def resolver_diagramacion_buses(
                 # La línea no pertenece a ningún grupo, procesarla individualmente
                 viajes_por_grupo[f"LINEA_INDIVIDUAL_{linea}"].append(viaje)
     else:
-        # Procesar por línea individual (comportamiento original)
-        print(f"Sin grupos configurados: Procesando por línea individual")
-        viajes_por_grupo: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
-        for viaje in viajes_comerciales:
-            linea = viaje.get("linea") or "SIN_LINEA"
-            viajes_por_grupo[linea].append(viaje)
+        # Por defecto, sin grupos explícitos se procesa en un grupo único para
+        # maximizar reutilización entre líneas y reducir buses.
+        procesar_individual = bool(config.get("procesar_lineas_individual_sin_grupos", False))
+        if procesar_individual:
+            print("Sin grupos configurados: Procesando por línea individual (forzado por config)")
+            viajes_por_grupo: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+            for viaje in viajes_comerciales:
+                linea = viaje.get("linea") or "SIN_LINEA"
+                viajes_por_grupo[linea].append(viaje)
+        else:
+            print("Sin grupos configurados: Procesando todas las líneas juntas (modo optimizado)")
+            viajes_por_grupo: Dict[str, List[Dict[str, Any]]] = {"TODAS_LAS_LINEAS": viajes_comerciales}
 
     print(f"Grupos/Líneas a procesar: {len(viajes_por_grupo)}")
 
@@ -1231,7 +1237,63 @@ def resolver_diagramacion_buses(
     if faltantes_bloques:
         print(f"\n[REGLA DURA] Agregando {len(faltantes_bloques)} viajes faltantes a bloques (cobertura 100%)...")
         nombres_depositos_disponibles = gestor._nombres_depositos() if hasattr(gestor, "_nombres_depositos") else [gestor.deposito_base]
+        def _ultimo_comercial_bloque(bloque: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+            for it in reversed(bloque or []):
+                if _vid(it) is not None and (
+                    it.get("evento") is None or str(it.get("evento", "")).strip().lower() == "comercial"
+                ):
+                    return it
+            return None
+
+        def _tipos_compatibles_bloque(bloque: List[Dict[str, Any]]) -> Set[str]:
+            inter: Optional[Set[str]] = None
+            for it in (bloque or []):
+                if _vid(it) is None:
+                    continue
+                linea_it = it.get("linea")
+                permitidos = set(gestor.tipos_permitidos_para_linea(linea_it) or [])
+                if not permitidos:
+                    continue
+                inter = permitidos if inter is None else (inter & permitidos)
+            return inter if inter is not None else set()
+
         for viaje in faltantes_bloques:
+            # Intentar reinsertar primero en bloques existentes para minimizar buses.
+            mejor_idx = None
+            mejor_slack = None
+            tipos_viaje = set(gestor.tipos_permitidos_para_linea(viaje.get("linea")) or [])
+            for bi, bloque_existente in enumerate(todos_los_bloques):
+                ultimo = _ultimo_comercial_bloque(bloque_existente)
+                if not ultimo:
+                    continue
+                fin_ultimo = int(ultimo.get("fin", 0) or 0)
+                ini_viaje = int(viaje.get("inicio", 0) or 0)
+                if fin_ultimo > ini_viaje:
+                    continue
+                tipos_bloque = _tipos_compatibles_bloque(bloque_existente)
+                if tipos_bloque and tipos_viaje and not (tipos_bloque & tipos_viaje):
+                    continue
+                ori_ult = str(ultimo.get("destino", "")).strip()
+                ori_new = str(viaje.get("origen", "")).strip()
+                can_ult = (gestor.nodo_canonico_para_conectividad(ori_ult) or "").strip().upper()
+                can_new = (gestor.nodo_canonico_para_conectividad(ori_new) or "").strip().upper()
+                t_req = 0
+                if can_ult != can_new:
+                    t_vacio, _ = gestor.buscar_tiempo_vacio(ori_ult, ori_new, fin_ultimo)
+                    if t_vacio is None:
+                        continue
+                    t_req = int(t_vacio)
+                if fin_ultimo + t_req > ini_viaje:
+                    continue
+                slack = ini_viaje - (fin_ultimo + t_req)
+                if mejor_slack is None or slack < mejor_slack:
+                    mejor_slack = slack
+                    mejor_idx = bi
+            if mejor_idx is not None:
+                todos_los_bloques[mejor_idx].append(dict(viaje))
+                viajes_asignados.add(_vid(viaje))
+                continue
+
             mejor_deposito_inicio = gestor.deposito_base
             mejor_tiempo_vacio_inicio = None
             for dep in nombres_depositos_disponibles:
@@ -2521,13 +2583,6 @@ def _insertar_vacios_conexion(
     # Intentar vacío directo
     t_vacio, km_vacio = buscar_vacio_func(ultimo["destino"], viaje["origen"], hora_disp)
     if t_vacio is not None and hora_disp + t_vacio <= viaje["inicio"]:
-        regla_destino = paradas_dict.get(str(viaje["origen"]).upper())
-        if regla_destino:
-            parada_min = regla_destino.get("min", 0)
-            parada_max = regla_destino.get("max", 1440)
-            tiempo_restante = viaje["inicio"] - (hora_disp + t_vacio)
-            if tiempo_restante < parada_min or tiempo_restante > parada_max:
-                return False
         inicio_vacio = hora_disp
         fin_vacio = hora_disp + t_vacio
         evento_vacio = {

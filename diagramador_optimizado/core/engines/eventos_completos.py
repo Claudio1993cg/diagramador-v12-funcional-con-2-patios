@@ -587,6 +587,7 @@ def construir_eventos_completos(
         buses_turno = {int(bus_idx) for _, bus_idx in (t.get("tareas_con_bus", []) or []) if bus_idx is not None}
         for bidx in sorted(buses_turno):
             conductores_por_bus_idx[bidx].append(c_id)
+    umbral_parada_larga = int(getattr(gestor, "parada_larga_umbral", 60) or 60)
 
     comerciales = []
     conduc_bus_con_comercial = set()
@@ -607,6 +608,13 @@ def construir_eventos_completos(
     for ev in eventos_base_bus_puro:
         bus_val = ev.get("bus")
         ev["conductor"] = ""
+        if str(ev.get("evento", "")).strip().upper() == "PARADA":
+            dur_ev = int(ev.get("_fin", 0) or 0) - int(ev.get("_ini", 0) or 0)
+            if dur_ev > umbral_parada_larga:
+                # Regla dura operativa: una parada larga NO puede quedar asociada
+                # a un conductor; el corte de turno debe ocurrir antes/después.
+                eventos_base.append(ev)
+                continue
         if bus_val not in (None, "", 0, "0"):
             bus_idx = int(bus_val) - 1
             candidatos = conductores_por_bus_idx.get(bus_idx, [])
@@ -619,6 +627,94 @@ def construir_eventos_completos(
         eventos_base.append(ev)
 
     eventos_base.extend(comerciales)
+
+    # Asignación obligatoria de VACIO por continuidad operacional del bus.
+    # Si un vacío de BusEventos queda fuera del rango exacto del turno, se intenta
+    # heredar el conductor del evento contiguo (prev/next) del mismo bus.
+    def _can_local(nodo: Any) -> str:
+        return (gestor.nodo_canonico_para_conectividad(nodo) or "").strip().upper()
+
+    def _bus_key_norm(bus_id: Any) -> str:
+        if bus_id in (None, "", 0, "0"):
+            return ""
+        s = str(bus_id).strip()
+        if not s:
+            return ""
+        try:
+            f = float(s)
+            if abs(f - int(f)) < 1e-9:
+                return str(int(f))
+        except Exception:
+            pass
+        if s.isdigit():
+            return str(int(s))
+        return s
+
+    by_bus_asignados: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+    for evb in eventos_base:
+        bus_e = evb.get("bus")
+        cond_e = evb.get("conductor")
+        if bus_e in (None, "", 0, "0") or cond_e in (None, ""):
+            continue
+        key_bus = _bus_key_norm(bus_e)
+        if not key_bus:
+            continue
+        by_bus_asignados[key_bus].append(evb)
+    for k in list(by_bus_asignados.keys()):
+        by_bus_asignados[k].sort(key=lambda x: (int(x.get("_ini", 0) or 0), int(x.get("_fin", 0) or 0)))
+
+    for evb in eventos_base:
+        if str(evb.get("evento", "")).strip().upper() != "VACIO":
+            continue
+        if evb.get("conductor") not in (None, ""):
+            continue
+        bus_e = evb.get("bus")
+        if bus_e in (None, "", 0, "0"):
+            continue
+        bus_key = _bus_key_norm(bus_e)
+        if not bus_key:
+            continue
+        candidatos = by_bus_asignados.get(bus_key, [])
+        if not candidatos:
+            continue
+
+        ev_ini = int(evb.get("_ini", 0) or 0)
+        ev_fin = int(evb.get("_fin", 0) or 0)
+        ev_o = _can_local(evb.get("origen", ""))
+        ev_d = _can_local(evb.get("destino", ""))
+        tol = 2
+
+        prev_match = None
+        next_match = None
+        for c in candidatos:
+            c_ini = int(c.get("_ini", 0) or 0)
+            c_fin = int(c.get("_fin", 0) or 0)
+            c_o = _can_local(c.get("origen", ""))
+            c_d = _can_local(c.get("destino", ""))
+            if c_fin <= ev_ini and (ev_ini - c_fin) <= tol and c_d == ev_o:
+                prev_match = c
+            if next_match is None and c_ini >= ev_fin and (c_ini - ev_fin) <= tol and c_o == ev_d:
+                next_match = c
+
+        conductor_asignado = None
+        if prev_match is not None and next_match is not None:
+            c_prev = prev_match.get("conductor")
+            c_next = next_match.get("conductor")
+            if c_prev not in (None, "") and str(c_prev) == str(c_next):
+                conductor_asignado = c_prev
+        if conductor_asignado is None and prev_match is not None:
+            c_prev = prev_match.get("conductor")
+            if c_prev not in (None, ""):
+                conductor_asignado = c_prev
+        if conductor_asignado is None and next_match is not None:
+            c_next = next_match.get("conductor")
+            if c_next not in (None, ""):
+                conductor_asignado = c_next
+
+        if conductor_asignado not in (None, ""):
+            evb["conductor"] = conductor_asignado
+            by_bus_asignados[bus_key].append(evb)
+            by_bus_asignados[bus_key].sort(key=lambda x: (int(x.get("_ini", 0) or 0), int(x.get("_fin", 0) or 0)))
 
     eventos_sin_conductor = [e for e in eventos_base if not e.get("conductor")]
     eventos_con_conductor = collections.defaultdict(list)
@@ -636,7 +732,9 @@ def construir_eventos_completos(
         bus_v = ev.get("bus")
         if bus_v in (None, "", 0, "0"):
             continue
-        bus_key = str(bus_v).strip()
+        bus_key = _bus_key_norm(bus_v)
+        if not bus_key:
+            continue
         vacios_fase1_por_bus[bus_key].append(
             (
                 int(ev.get("_ini", 0) or 0),
@@ -649,7 +747,9 @@ def construir_eventos_completos(
     def _vacio_existe_en_fase1(bus_id: Any, ini_min: int, fin_min: int, origen: str, destino: str) -> bool:
         if bus_id in (None, "", 0, "0"):
             return False
-        bus_key = str(bus_id).strip()
+        bus_key = _bus_key_norm(bus_id)
+        if not bus_key:
+            return False
         candidatos = vacios_fase1_por_bus.get(bus_key, [])
         if not candidatos:
             return False
@@ -722,7 +822,19 @@ def construir_eventos_completos(
                         ev_descartado = True
                         break
                 else: break
-            if not ev_descartado and ev["_fin"] >= ev["_ini"]: reales_limpios.append(ev)
+            if not ev_descartado and ev["_fin"] >= ev["_ini"]:
+                if reales_limpios:
+                    prev_ok = reales_limpios[-1]
+                    if (
+                        str(prev_ok.get("evento", "")).strip().upper() == "PARADA"
+                        and str(ev.get("evento", "")).strip().upper() == "PARADA"
+                        and get_canonical(prev_ok.get("origen", "")) == get_canonical(ev.get("origen", ""))
+                        and int(ev.get("_ini", 0) or 0) <= int(prev_ok.get("_fin", 0) or 0)
+                    ):
+                        prev_ok["_fin"] = max(int(prev_ok.get("_fin", 0) or 0), int(ev.get("_fin", 0) or 0))
+                        # La espera es del conductor: mantener un único evento de parada continuo.
+                        continue
+                reales_limpios.append(ev)
 
         if not reales_limpios: continue
 
@@ -881,6 +993,48 @@ def construir_eventos_completos(
 
             for i, ev in enumerate(seg):
                 ev["conductor"] = cid_seg
+
+                def _agregar_espera_o_corte(inicio_espera: int, fin_espera: int, nodo_espera: str) -> None:
+                    if fin_espera <= inicio_espera:
+                        return
+                    dur_espera = fin_espera - inicio_espera
+                    if dur_espera > umbral_parada_larga and es_deposito(nodo_espera, deposito):
+                        # Regla dura: espera larga => corte de turno (sin Parada asignada).
+                        linea_tiempo.append(
+                            _crear_evento_base_dict(
+                                "FnS", "", cid_seg, inicio_espera, inicio_espera, nodo_espera, nodo_espera, desc="Fin Jornada (corte parada larga)"
+                            )
+                        )
+                        ins_ini = inicio_espera
+                        linea_tiempo.append(
+                            _crear_evento_base_dict(
+                                "InS", "", cid_seg, ins_ini, fin_espera, nodo_espera, nodo_espera, desc="Inicio Jornada (corte parada larga)"
+                            )
+                        )
+                        return
+                    # Construcción de origen: si ya existe una Parada contigua/solapada
+                    # del mismo conductor en el mismo nodo, ampliar esa misma espera.
+                    if linea_tiempo:
+                        ult = linea_tiempo[-1]
+                        if (
+                            str(ult.get("evento", "")).strip().upper() == "PARADA"
+                            and get_canonical(ult.get("origen", "")) == get_canonical(nodo_espera)
+                        ):
+                            ult_ini = int(ult.get("_ini", 0) or 0)
+                            ult_fin = int(ult.get("_fin", 0) or 0)
+                            if inicio_espera <= ult_fin and fin_espera >= ult_ini:
+                                ult["_ini"] = min(ult_ini, inicio_espera)
+                                ult["_fin"] = max(ult_fin, fin_espera)
+                                return
+                            if inicio_espera == ult_fin:
+                                ult["_fin"] = fin_espera
+                                return
+                    linea_tiempo.append(
+                        _crear_evento_base_dict(
+                            "Parada", "", cid_seg, inicio_espera, fin_espera, nodo_espera, nodo_espera, desc="Espera"
+                        )
+                    )
+
                 if i > 0:
                     prev = seg[i-1]
                     gap = ev['_ini'] - prev['_fin']
@@ -890,24 +1044,43 @@ def construir_eventos_completos(
                     if gap > 0:
                         if o_can == d_can:
                             hab, tm = _cached_buscar_info_desplazamiento(prev['destino'], ev['origen'], prev['_fin'], gestor)
-                            if hab and tm and int(tm) > 0 and gap >= int(tm) and prev['destino'].upper() != ev['origen'].upper():
-                                t = int(tm)
-                                if gap > t: linea_tiempo.append(_crear_evento_base_dict("Parada", "", cid_seg, prev['_fin'], ev['_ini'] - t, prev['destino'], prev['destino'], desc="Espera"))
+                            t = int(tm) if (hab and tm and int(tm) > 0) else 0
+                            if t <= 0 and prev['destino'].upper() != ev['origen'].upper():
+                                # Fallback robusto: si hay desplazamiento/vacío configurado con alias
+                                # distintos, usar tiempo de conectividad consolidado.
+                                t = int(obtener_tiempo_traslado(prev['destino'], ev['origen'], prev['_fin'], gestor) or 0)
+                            if t > 0 and gap >= t and prev['destino'].upper() != ev['origen'].upper():
+                                if gap > t:
+                                    _agregar_espera_o_corte(prev["_fin"], ev["_ini"] - t, prev["destino"])
                                 _agregar_conector(prev, ev, ev['_ini'] - t, ev['_ini'], prev['destino'], ev['origen'], desc=f"A {ev['origen']}")
+                            elif prev['destino'].upper() != ev['origen'].upper():
+                                # Último fallback: conector de 0 min para dejar continuidad explícita
+                                # y evitar teletransporte lógico cuando faltan tiempos.
+                                _agregar_conector(prev, ev, ev['_ini'], ev['_ini'], prev['destino'], ev['origen'], desc=f"A {ev['origen']}")
                             else:
-                                linea_tiempo.append(_crear_evento_base_dict("Parada", "", cid_seg, prev['_fin'], ev['_ini'], prev['destino'], prev['destino'], desc="Espera"))
+                                _agregar_espera_o_corte(prev["_fin"], ev["_ini"], prev["destino"])
                         else:
                             t = obtener_tiempo_traslado(prev['destino'], ev['origen'], prev['_fin'], gestor)
                             if t > 0 and gap >= t:
                                 if gap > t:
-                                    linea_tiempo.append(_crear_evento_base_dict("Parada", "", cid_seg, prev['_fin'], ev['_ini'] - t, prev['destino'], prev['destino'], desc="Espera"))
+                                    _agregar_espera_o_corte(prev["_fin"], ev["_ini"] - t, prev["destino"])
                                 _agregar_conector(prev, ev, ev['_ini'] - t, ev['_ini'], prev['destino'], ev['origen'], desc=f"A {ev['origen']}")
                             else:
                                 # Sin traslado válido configurado entre nodos distintos:
                                 # no inventar duración. Se deja el hueco como parada.
-                                linea_tiempo.append(_crear_evento_base_dict("Parada", "", cid_seg, prev['_fin'], ev['_ini'], prev['destino'], prev['destino'], desc="Espera"))
+                                _agregar_espera_o_corte(prev["_fin"], ev["_ini"], prev["destino"])
                     elif gap == 0 and o_can != d_can:
                         _agregar_conector(prev, ev, ev['_ini'], ev['_ini'], prev['destino'], ev['origen'], desc=f"A {ev['origen']}")
+                if linea_tiempo:
+                    ult_lt = linea_tiempo[-1]
+                    if (
+                        str(ult_lt.get("evento", "")).strip().upper() == "PARADA"
+                        and str(ev.get("evento", "")).strip().upper() == "PARADA"
+                        and get_canonical(ult_lt.get("origen", "")) == get_canonical(ev.get("origen", ""))
+                        and int(ev.get("_ini", 0) or 0) <= int(ult_lt.get("_fin", 0) or 0)
+                    ):
+                        ult_lt["_fin"] = max(int(ult_lt.get("_fin", 0) or 0), int(ev.get("_fin", 0) or 0))
+                        continue
                 linea_tiempo.append(ev)
 
             ultimo_ev = seg[-1]
@@ -917,7 +1090,7 @@ def construir_eventos_completos(
                     t_retorno = max(0, int(obtener_tiempo_traslado(ultimo_ev['destino'], deposito, ultimo_ev['_fin'], gestor) or 0))
                     # Si la conectividad canónica devolvió 0 pero el texto de nodos difiere,
                     # buscar tiempo configurado estricto (desplazamiento/vacío) para no perder
-                    # el conector operativo AGUIRRE LUCO -> Deposito Aguirre Luco (u otros alias).
+                    # conectores operativos cuando existen alias/sinónimos de nodos.
                     if t_retorno <= 0:
                         dest_txt = str(ultimo_ev.get('destino', '') or '').strip().upper()
                         dep_txt = str(deposito or '').strip().upper()
@@ -1031,46 +1204,846 @@ def construir_eventos_completos(
             eventos_casi_finales.extend(linea_tiempo)
 
     validar_comerciales_todos_asignados(eventos_base)
-    # Vacíos sin asignar: advertir pero no fallar (p. ej. retornos al depósito fuera del rango del turno)
+
+    # REGLA DURA: todo VACIO debe quedar asignado a un conductor.
+    # Intento de rescate por continuidad operacional en el mismo bus.
     sin_conductor_vacio = [e for e in eventos_sin_conductor if str(e.get("evento", "")).strip().upper() == "VACIO"]
     if sin_conductor_vacio:
-        for e in sin_conductor_vacio[:5]:
-            print(f"  [ADVERTENCIA] Vacio sin conductor: {e.get('origen','')}->{e.get('destino','')} {e.get('inicio','')}-{e.get('fin','')}")
-        if len(sin_conductor_vacio) > 5:
-            print(f"  [ADVERTENCIA] ... y {len(sin_conductor_vacio) - 5} vacíos más sin conductor.")
-    # Solo añadir al resultado eventos sin conductor que NO sean Comercial ni Vacio (ej. Paradas al inicio/fin)
+        eventos_por_bus: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+        for ev_cf in eventos_casi_finales:
+            bus_cf = ev_cf.get("bus")
+            cond_cf = ev_cf.get("conductor")
+            if bus_cf in (None, "", 0, "0") or cond_cf in (None, ""):
+                continue
+            key_cf = _bus_key_norm(bus_cf)
+            if not key_cf:
+                continue
+            eventos_por_bus[key_cf].append(ev_cf)
+        for k in list(eventos_por_bus.keys()):
+            eventos_por_bus[k].sort(key=lambda x: (int(x.get("_ini", 0) or 0), int(x.get("_fin", 0) or 0)))
+
+        def _promover_desplazamiento_a_vacio(cid: Any, v_ev: Dict[str, Any], bus_key: str) -> bool:
+            v_ini = int(v_ev.get("_ini", 0) or 0)
+            v_fin = int(v_ev.get("_fin", 0) or 0)
+            v_o = get_canonical(v_ev.get("origen", ""))
+            v_d = get_canonical(v_ev.get("destino", ""))
+            tol = 5
+            candidato = None
+            mejor_delta = 10**9
+            for ex in eventos_casi_finales:
+                if str(ex.get("conductor", "")) != str(cid):
+                    continue
+                ex_tipo = str(ex.get("evento", "")).strip().upper()
+                ex_ini = int(ex.get("_ini", 0) or 0)
+                ex_fin = int(ex.get("_fin", 0) or 0)
+                ex_o = get_canonical(ex.get("origen", ""))
+                ex_d = get_canonical(ex.get("destino", ""))
+                if abs(ex_ini - v_ini) > tol or abs(ex_fin - v_fin) > tol:
+                    continue
+                if ex_o != v_o or ex_d != v_d:
+                    continue
+                if ex_tipo == "VACIO" and _bus_key_norm(ex.get("bus", "")) == bus_key:
+                    return True
+                # Caso robusto: desplazamiento del conductor cubre totalmente el vacío
+                # operativo del bus. Se parte en segmentos para no perder continuidad.
+                if ex_tipo == "DESPLAZAMIENTO" and ex_ini <= v_ini and ex_fin >= v_fin:
+                    before_ini = ex_ini
+                    before_fin = v_ini
+                    after_ini = v_fin
+                    after_fin = ex_fin
+                    ex["evento"] = "Vacio"
+                    ex["bus"] = v_ev.get("bus", ex.get("bus", ""))
+                    ex["_ini"] = v_ini
+                    ex["_fin"] = v_fin
+                    ex["origen"] = v_ev.get("origen", ex.get("origen", ""))
+                    ex["destino"] = v_ev.get("destino", ex.get("destino", ""))
+                    if v_ev.get("desc"):
+                        ex["desc"] = v_ev.get("desc")
+                    if v_ev.get("kilometros") not in (None, ""):
+                        ex["kilometros"] = v_ev.get("kilometros")
+                    if before_fin > before_ini:
+                        eventos_casi_finales.append(
+                            _crear_evento_base_dict(
+                                "Desplazamiento",
+                                "",
+                                cid,
+                                before_ini,
+                                before_fin,
+                                v_ev.get("origen", ""),
+                                v_ev.get("origen", ""),
+                                desc="Conexión conductor (previa)",
+                            )
+                        )
+                    if after_fin > after_ini:
+                        eventos_casi_finales.append(
+                            _crear_evento_base_dict(
+                                "Desplazamiento",
+                                "",
+                                cid,
+                                after_ini,
+                                after_fin,
+                                v_ev.get("destino", ""),
+                                v_ev.get("destino", ""),
+                                desc="Conexión conductor (posterior)",
+                            )
+                        )
+                    return True
+                if ex_tipo == "DESPLAZAMIENTO":
+                    delta = abs(ex_ini - v_ini) + abs(ex_fin - v_fin)
+                    if delta < mejor_delta:
+                        mejor_delta = delta
+                        candidato = ex
+            if candidato is None:
+                return False
+            candidato["evento"] = "Vacio"
+            candidato["bus"] = v_ev.get("bus", candidato.get("bus", ""))
+            if v_ev.get("desc"):
+                candidato["desc"] = v_ev.get("desc")
+            if v_ev.get("kilometros") not in (None, ""):
+                candidato["kilometros"] = v_ev.get("kilometros")
+            return True
+
+        for vv in sin_conductor_vacio:
+            bus_v = vv.get("bus")
+            if bus_v in (None, "", 0, "0"):
+                continue
+            bus_key = _bus_key_norm(bus_v)
+            if not bus_key:
+                continue
+            candidatos = eventos_por_bus.get(bus_key, [])
+            if not candidatos:
+                continue
+
+            v_ini = int(vv.get("_ini", 0) or 0)
+            v_fin = int(vv.get("_fin", 0) or 0)
+            prev_ev = None
+            next_ev = None
+            for evb in candidatos:
+                evb_fin = int(evb.get("_fin", 0) or 0)
+                evb_ini = int(evb.get("_ini", 0) or 0)
+                if evb_fin <= v_ini:
+                    prev_ev = evb
+                if next_ev is None and evb_ini >= v_fin:
+                    next_ev = evb
+
+            cid_rescate = None
+            if prev_ev is not None and next_ev is not None and str(prev_ev.get("conductor", "")) == str(next_ev.get("conductor", "")):
+                cid_test = prev_ev.get("conductor")
+                if cid_test not in (None, ""):
+                    cid_rescate = cid_test
+            if cid_rescate is None and prev_ev is not None:
+                cid_test = prev_ev.get("conductor")
+                if cid_test not in (None, ""):
+                    cid_rescate = cid_test
+            if cid_rescate is None and next_ev is not None:
+                cid_test = next_ev.get("conductor")
+                if cid_test not in (None, ""):
+                    cid_rescate = cid_test
+
+            if cid_rescate not in (None, ""):
+                if _promover_desplazamiento_a_vacio(cid_rescate, vv, bus_key):
+                    vv["conductor"] = cid_rescate
+
+        pendientes = [e for e in sin_conductor_vacio if not e.get("conductor")]
+        def _hay_solape_conductor(cid: Any, ini: int, fin: int) -> bool:
+            for ex in eventos_casi_finales:
+                if str(ex.get("conductor", "")) != str(cid):
+                    continue
+                ex_ini = int(ex.get("_ini", 0) or 0)
+                ex_fin = int(ex.get("_fin", 0) or 0)
+                if not (fin <= ex_ini or ex_fin <= ini):
+                    return True
+            return False
+
+        def _hay_solape_conductor_no_ins(cid: Any, ini: int, fin: int) -> bool:
+            for ex in eventos_casi_finales:
+                if str(ex.get("conductor", "")) != str(cid):
+                    continue
+                if str(ex.get("evento", "")).strip().upper() == "INS":
+                    continue
+                ex_ini = int(ex.get("_ini", 0) or 0)
+                ex_fin = int(ex.get("_fin", 0) or 0)
+                if not (fin <= ex_ini or ex_fin <= ini):
+                    return True
+            return False
+
+        def _extender_fns(cid: Any, nuevo_fin: int) -> None:
+            cands_fns = [
+                e for e in eventos_casi_finales
+                if str(e.get("conductor", "")) == str(cid)
+                and str(e.get("evento", "")).strip().upper() == "FNS"
+            ]
+            if not cands_fns:
+                return
+            fns_ref = max(cands_fns, key=lambda x: int(x.get("_fin", 0) or 0))
+            fin_act = int(fns_ref.get("_fin", 0) or 0)
+            if nuevo_fin > fin_act:
+                fns_ref["_ini"] = nuevo_fin
+                fns_ref["_fin"] = nuevo_fin
+
+        def _adelantar_ins(cid: Any, nuevo_ini_vacio: int) -> None:
+            cands_ins = [
+                e for e in eventos_casi_finales
+                if str(e.get("conductor", "")) == str(cid)
+                and str(e.get("evento", "")).strip().upper() == "INS"
+            ]
+            if not cands_ins:
+                return
+            ins_ref = min(cands_ins, key=lambda x: int(x.get("_ini", 0) or 0))
+            t_toma_ref = int(tiempo_toma or 0)
+            ins_ref["_fin"] = min(int(ins_ref.get("_fin", 0) or 0), int(nuevo_ini_vacio))
+            ins_ref["_ini"] = min(int(ins_ref.get("_ini", 0) or 0), max(0, int(nuevo_ini_vacio) - t_toma_ref))
+            if int(ins_ref["_fin"]) < int(ins_ref["_ini"]):
+                ins_ref["_fin"] = ins_ref["_ini"]
+
+        for vv in pendientes:
+            bus_v = vv.get("bus")
+            if bus_v in (None, "", 0, "0"):
+                continue
+            bus_key = _bus_key_norm(bus_v)
+            if not bus_key:
+                continue
+            v_ini = int(vv.get("_ini", 0) or 0)
+            v_fin = int(vv.get("_fin", 0) or 0)
+            o_dep = es_deposito(vv.get("origen", ""), deposito)
+            d_dep = es_deposito(vv.get("destino", ""), deposito)
+            cands_bus = [
+                e for e in eventos_casi_finales
+                if _bus_key_norm(e.get("bus", "")) == bus_key
+                and e.get("conductor") not in (None, "")
+                and int(e.get("_fin", 0) or 0) <= v_ini
+            ]
+            cands_bus_next = [
+                e for e in eventos_casi_finales
+                if _bus_key_norm(e.get("bus", "")) == bus_key
+                and e.get("conductor") not in (None, "")
+                and int(e.get("_ini", 0) or 0) >= v_fin
+            ]
+
+            if cands_bus:
+                ref = max(cands_bus, key=lambda x: int(x.get("_fin", 0) or 0))
+                cid_ref = ref.get("conductor")
+                if cid_ref not in (None, "") and _promover_desplazamiento_a_vacio(cid_ref, vv, bus_key):
+                    vv["conductor"] = cid_ref
+                    continue
+                if cid_ref not in (None, "") and d_dep and not _hay_solape_conductor(cid_ref, v_ini, v_fin):
+                    vv["conductor"] = cid_ref
+                    eventos_casi_finales.append(vv)
+                    _extender_fns(cid_ref, v_fin)
+                    continue
+
+            if cands_bus_next:
+                refn = min(cands_bus_next, key=lambda x: int(x.get("_ini", 0) or 0))
+                cid_next = refn.get("conductor")
+                if cid_next not in (None, "") and _promover_desplazamiento_a_vacio(cid_next, vv, bus_key):
+                    vv["conductor"] = cid_next
+                    continue
+                if cid_next not in (None, "") and o_dep and not _hay_solape_conductor_no_ins(cid_next, v_ini, v_fin):
+                    vv["conductor"] = cid_next
+                    eventos_casi_finales.append(vv)
+                    _adelantar_ins(cid_next, v_ini)
+
+        # Último recurso controlado por continuidad de nodo/tiempo (cuando no hay
+        # coincidencia limpia por id_bus, p.ej. diferencias de tipado bus str/int).
+        pendientes = [e for e in sin_conductor_vacio if not e.get("conductor")]
+        for vv in pendientes:
+            v_ini = int(vv.get("_ini", 0) or 0)
+            v_fin = int(vv.get("_fin", 0) or 0)
+            v_o = get_canonical(vv.get("origen", ""))
+            v_d = get_canonical(vv.get("destino", ""))
+            o_dep = es_deposito(vv.get("origen", ""), deposito)
+            d_dep = es_deposito(vv.get("destino", ""), deposito)
+            tol = 10
+            if o_dep:
+                cands_next = [
+                    e for e in eventos_casi_finales
+                    if e.get("conductor") not in (None, "")
+                    and int(e.get("_ini", 0) or 0) >= v_fin
+                    and int(e.get("_ini", 0) or 0) - v_fin <= tol
+                    and get_canonical(e.get("origen", "")) == v_d
+                ]
+                if cands_next:
+                    refn = min(cands_next, key=lambda x: int(x.get("_ini", 0) or 0))
+                    cid_next = refn.get("conductor")
+                    if cid_next not in (None, "") and not _hay_solape_conductor_no_ins(cid_next, v_ini, v_fin):
+                        vv["conductor"] = cid_next
+                        eventos_casi_finales.append(vv)
+                        _adelantar_ins(cid_next, v_ini)
+                        continue
+            if d_dep:
+                cands_prev = [
+                    e for e in eventos_casi_finales
+                    if e.get("conductor") not in (None, "")
+                    and int(e.get("_fin", 0) or 0) <= v_ini
+                    and v_ini - int(e.get("_fin", 0) or 0) <= tol
+                    and get_canonical(e.get("destino", "")) == v_o
+                ]
+                if cands_prev:
+                    refp = max(cands_prev, key=lambda x: int(x.get("_fin", 0) or 0))
+                    cid_prev = refp.get("conductor")
+                    if cid_prev not in (None, "") and not _hay_solape_conductor(cid_prev, v_ini, v_fin):
+                        vv["conductor"] = cid_prev
+                        eventos_casi_finales.append(vv)
+                        _extender_fns(cid_prev, v_fin)
+
+        # Fallback sin límite de ventana: asignar por continuidad de nodo aunque
+        # exista una espera larga (se explicita con Parada para evitar huecos).
+        pendientes = [e for e in sin_conductor_vacio if not e.get("conductor")]
+        for vv in pendientes:
+            v_ini = int(vv.get("_ini", 0) or 0)
+            v_fin = int(vv.get("_fin", 0) or 0)
+            v_o = get_canonical(vv.get("origen", ""))
+            v_d = get_canonical(vv.get("destino", ""))
+            o_dep = es_deposito(vv.get("origen", ""), deposito)
+            d_dep = es_deposito(vv.get("destino", ""), deposito)
+            if o_dep:
+                cands_next_any = [
+                    e for e in eventos_casi_finales
+                    if e.get("conductor") not in (None, "")
+                    and int(e.get("_ini", 0) or 0) >= v_fin
+                    and get_canonical(e.get("origen", "")) == v_d
+                ]
+                if cands_next_any:
+                    refn = min(cands_next_any, key=lambda x: int(x.get("_ini", 0) or 0))
+                    cid_next = refn.get("conductor")
+                    ini_ref = int(refn.get("_ini", 0) or 0)
+                    if cid_next not in (None, "") and not _hay_solape_conductor_no_ins(cid_next, v_ini, v_fin):
+                        vv["conductor"] = cid_next
+                        eventos_casi_finales.append(vv)
+                        if ini_ref > v_fin:
+                            eventos_casi_finales.append(
+                                _crear_evento_base_dict("Parada", "", cid_next, v_fin, ini_ref, vv.get("destino", ""), vv.get("destino", ""), desc="Espera")
+                            )
+                        _adelantar_ins(cid_next, v_ini)
+                        continue
+            if d_dep:
+                cands_prev_any = [
+                    e for e in eventos_casi_finales
+                    if e.get("conductor") not in (None, "")
+                    and int(e.get("_fin", 0) or 0) <= v_ini
+                    and get_canonical(e.get("destino", "")) == v_o
+                ]
+                if cands_prev_any:
+                    refp = max(cands_prev_any, key=lambda x: int(x.get("_fin", 0) or 0))
+                    cid_prev = refp.get("conductor")
+                    fin_ref = int(refp.get("_fin", 0) or 0)
+                    if cid_prev not in (None, "") and not _hay_solape_conductor(cid_prev, v_ini, v_fin):
+                        if v_ini > fin_ref:
+                            eventos_casi_finales.append(
+                                _crear_evento_base_dict("Parada", "", cid_prev, fin_ref, v_ini, vv.get("origen", ""), vv.get("origen", ""), desc="Espera")
+                            )
+                        vv["conductor"] = cid_prev
+                        eventos_casi_finales.append(vv)
+                        _extender_fns(cid_prev, v_fin)
+
+        # Último intento: usar continuidad en eventos_base (antes de limpieza por conflictos),
+        # para no perder vacíos operativos válidos del bus.
+        pendientes = [e for e in sin_conductor_vacio if not e.get("conductor")]
+        base_por_bus: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+        for eb in eventos_base:
+            if eb.get("conductor") in (None, ""):
+                continue
+            bus_b = eb.get("bus")
+            if bus_b in (None, "", 0, "0"):
+                continue
+            key_b = _bus_key_norm(bus_b)
+            if not key_b:
+                continue
+            base_por_bus[key_b].append(eb)
+        for k in list(base_por_bus.keys()):
+            base_por_bus[k].sort(key=lambda x: (int(x.get("_ini", 0) or 0), int(x.get("_fin", 0) or 0)))
+
+        for vv in pendientes:
+            if vv.get("conductor") not in (None, ""):
+                continue
+            bus_v = vv.get("bus")
+            if bus_v in (None, "", 0, "0"):
+                continue
+            bus_key = _bus_key_norm(bus_v)
+            if not bus_key:
+                continue
+            cands = base_por_bus.get(bus_key, [])
+            if not cands:
+                continue
+            v_ini = int(vv.get("_ini", 0) or 0)
+            v_fin = int(vv.get("_fin", 0) or 0)
+            o_dep = es_deposito(vv.get("origen", ""), deposito)
+            d_dep = es_deposito(vv.get("destino", ""), deposito)
+            prev_base = None
+            next_base = None
+            for eb in cands:
+                eb_ini = int(eb.get("_ini", 0) or 0)
+                eb_fin = int(eb.get("_fin", 0) or 0)
+                if eb_fin <= v_ini:
+                    prev_base = eb
+                if next_base is None and eb_ini >= v_fin:
+                    next_base = eb
+            cid_pick = None
+            if o_dep and next_base is not None:
+                cid_pick = next_base.get("conductor")
+            elif d_dep and prev_base is not None:
+                cid_pick = prev_base.get("conductor")
+            elif next_base is not None:
+                cid_pick = next_base.get("conductor")
+            elif prev_base is not None:
+                cid_pick = prev_base.get("conductor")
+            if cid_pick in (None, ""):
+                continue
+            if _promover_desplazamiento_a_vacio(cid_pick, vv, bus_key):
+                vv["conductor"] = cid_pick
+                continue
+            if _hay_solape_conductor_no_ins(cid_pick, v_ini, v_fin):
+                continue
+            vv["conductor"] = cid_pick
+            eventos_casi_finales.append(vv)
+            if o_dep:
+                _adelantar_ins(cid_pick, v_ini)
+            if d_dep:
+                _extender_fns(cid_pick, v_fin)
+
+        # Último cierre determinista: asignar al conductor más cercano del mismo bus.
+        pendientes = [e for e in sin_conductor_vacio if not e.get("conductor")]
+        for vv in pendientes:
+            bus_v = vv.get("bus")
+            bus_key = _bus_key_norm(bus_v)
+            if not bus_key:
+                continue
+            v_ini = int(vv.get("_ini", 0) or 0)
+            v_fin = int(vv.get("_fin", 0) or 0)
+            o_dep = es_deposito(vv.get("origen", ""), deposito)
+            d_dep = es_deposito(vv.get("destino", ""), deposito)
+            cands_same_bus = [
+                e for e in eventos_base
+                if e.get("conductor") not in (None, "")
+                and _bus_key_norm(e.get("bus", "")) == bus_key
+            ]
+            if not cands_same_bus:
+                continue
+            mejor_cid = None
+            mejor_score = 10**9
+            for evc in cands_same_bus:
+                cid = evc.get("conductor")
+                if cid in (None, ""):
+                    continue
+                ini_c = int(evc.get("_ini", 0) or 0)
+                fin_c = int(evc.get("_fin", 0) or 0)
+                if fin_c <= v_ini:
+                    score = v_ini - fin_c
+                elif ini_c >= v_fin:
+                    score = ini_c - v_fin
+                else:
+                    score = 0
+                if score < mejor_score:
+                    mejor_score = score
+                    mejor_cid = cid
+            if mejor_cid in (None, ""):
+                continue
+            if _promover_desplazamiento_a_vacio(mejor_cid, vv, bus_key):
+                vv["conductor"] = mejor_cid
+                continue
+            if _hay_solape_conductor_no_ins(mejor_cid, v_ini, v_fin):
+                continue
+            vv["conductor"] = mejor_cid
+            eventos_casi_finales.append(vv)
+            if o_dep:
+                _adelantar_ins(mejor_cid, v_ini)
+            if d_dep:
+                _extender_fns(mejor_cid, v_fin)
+
+        # Fallback final absoluto: continuidad por nodo/tiempo aunque cambie bus.
+        pendientes = [e for e in sin_conductor_vacio if not e.get("conductor")]
+        for vv in pendientes:
+            v_ini = int(vv.get("_ini", 0) or 0)
+            v_fin = int(vv.get("_fin", 0) or 0)
+            v_o = get_canonical(vv.get("origen", ""))
+            v_d = get_canonical(vv.get("destino", ""))
+            o_dep = es_deposito(vv.get("origen", ""), deposito)
+            d_dep = es_deposito(vv.get("destino", ""), deposito)
+            tol = 90
+            cid_pick = None
+            if o_dep:
+                cands_next_any = [
+                    e for e in eventos_casi_finales
+                    if e.get("conductor") not in (None, "")
+                    and int(e.get("_ini", 0) or 0) >= v_fin
+                    and int(e.get("_ini", 0) or 0) - v_fin <= tol
+                    and get_canonical(e.get("origen", "")) == v_d
+                ]
+                if cands_next_any:
+                    refn = min(cands_next_any, key=lambda x: int(x.get("_ini", 0) or 0))
+                    cid_pick = refn.get("conductor")
+                    if cid_pick not in (None, "") and not _hay_solape_conductor_no_ins(cid_pick, v_ini, v_fin):
+                        vv["conductor"] = cid_pick
+                        eventos_casi_finales.append(vv)
+                        _adelantar_ins(cid_pick, v_ini)
+                        continue
+            if d_dep:
+                cands_prev_any = [
+                    e for e in eventos_casi_finales
+                    if e.get("conductor") not in (None, "")
+                    and int(e.get("_fin", 0) or 0) <= v_ini
+                    and v_ini - int(e.get("_fin", 0) or 0) <= tol
+                    and get_canonical(e.get("destino", "")) == v_o
+                ]
+                if cands_prev_any:
+                    refp = max(cands_prev_any, key=lambda x: int(x.get("_fin", 0) or 0))
+                    cid_pick = refp.get("conductor")
+                    if cid_pick not in (None, "") and not _hay_solape_conductor(cid_pick, v_ini, v_fin):
+                        vv["conductor"] = cid_pick
+                        eventos_casi_finales.append(vv)
+                        _extender_fns(cid_pick, v_fin)
+
+        sin_conductor_vacio = [e for e in sin_conductor_vacio if not e.get("conductor")]
+        if sin_conductor_vacio:
+            # Cierre forzado para garantizar solución viable:
+            # asignar cada vacío pendiente al conductor más cercano, removiendo
+            # solo conflictos no-comerciales en ese intervalo.
+            def _solapa(a_ini: int, a_fin: int, b_ini: int, b_fin: int) -> bool:
+                return not (a_fin <= b_ini or b_fin <= a_ini)
+
+            def _limite_cid(cid: Any) -> int:
+                return int(
+                    (limites_por_conductor or {}).get(
+                        cid,
+                        (limites_por_conductor or {}).get(str(cid), limite_jornada_final),
+                    )
+                    or limite_jornada_final
+                )
+
+            def _jornada_resultante_ok(cid: Any, add_ini: int, add_fin: int, anticipa_ins: bool, extiende_fns: bool) -> bool:
+                evs = [e for e in eventos_casi_finales if str(e.get("conductor", "")) == str(cid)]
+                if evs:
+                    min_ini = min(int(e.get("_ini", 0) or 0) for e in evs)
+                    max_fin = max(int(e.get("_fin", 0) or 0) for e in evs)
+                else:
+                    min_ini = add_ini
+                    max_fin = add_fin
+                if anticipa_ins:
+                    min_ini = min(min_ini, max(0, add_ini - int(tiempo_toma or 0)))
+                else:
+                    min_ini = min(min_ini, add_ini)
+                if extiende_fns:
+                    max_fin = max(max_fin, add_fin)
+                else:
+                    max_fin = max(max_fin, add_fin)
+                return duracion_minutos(min_ini, max_fin) <= _limite_cid(cid)
+
+            conductores_todos = sorted(
+                {
+                    e.get("conductor")
+                    for e in eventos_casi_finales
+                    if e.get("conductor") not in (None, "")
+                },
+                key=lambda x: int(x) if str(x).isdigit() else str(x),
+            )
+            for vv in [e for e in sin_conductor_vacio if not e.get("conductor")]:
+                bus_key = _bus_key_norm(vv.get("bus"))
+                v_ini = int(vv.get("_ini", 0) or 0)
+                v_fin = int(vv.get("_fin", 0) or 0)
+                o_dep = es_deposito(vv.get("origen", ""), deposito)
+                d_dep = es_deposito(vv.get("destino", ""), deposito)
+
+                cands_bus = [
+                    e.get("conductor")
+                    for e in eventos_base
+                    if e.get("conductor") not in (None, "")
+                    and _bus_key_norm(e.get("bus")) == bus_key
+                ]
+                candidatos = []
+                for cid in cands_bus + conductores_todos:
+                    if cid in (None, ""):
+                        continue
+                    if cid not in candidatos:
+                        candidatos.append(cid)
+
+                asignado = False
+                for cid in candidatos:
+                    if not _jornada_resultante_ok(cid, v_ini, v_fin, o_dep, d_dep):
+                        continue
+                    conflictos = []
+                    conflicto_comercial = False
+                    for ex in eventos_casi_finales:
+                        if str(ex.get("conductor", "")) != str(cid):
+                            continue
+                        ex_ini = int(ex.get("_ini", 0) or 0)
+                        ex_fin = int(ex.get("_fin", 0) or 0)
+                        if not _solapa(v_ini, v_fin, ex_ini, ex_fin):
+                            continue
+                        if str(ex.get("evento", "")).strip().upper() == "COMERCIAL":
+                            conflicto_comercial = True
+                            break
+                        conflictos.append(ex)
+                    if conflicto_comercial:
+                        continue
+                    if conflictos:
+                        eventos_casi_finales[:] = [e for e in eventos_casi_finales if e not in conflictos]
+                    vv["conductor"] = cid
+                    eventos_casi_finales.append(vv)
+                    if o_dep:
+                        _adelantar_ins(cid, v_ini)
+                    if d_dep:
+                        _extender_fns(cid, v_fin)
+                    asignado = True
+                    break
+                if not asignado:
+                    vv["conductor"] = ""
+
+            sin_conductor_vacio = [e for e in sin_conductor_vacio if not e.get("conductor")]
+        if sin_conductor_vacio:
+            muestra = "\n".join(
+                f"  - bus={e.get('bus','')} {e.get('origen','')}->{e.get('destino','')} {e.get('inicio','')}-{e.get('fin','')}"
+                for e in sin_conductor_vacio[:10]
+            )
+            if len(sin_conductor_vacio) > 10:
+                muestra += f"\n  ... y {len(sin_conductor_vacio) - 10} más."
+            raise ValueError(
+                "[EVENTOS COMPLETOS - REGLA DURA] Existen vacíos sin conductor. "
+                "Todos los VACIO deben quedar asignados.\n" + muestra
+            )
+
+    # Solo añadir al resultado eventos sin conductor que NO sean Comercial ni Vacio.
     eventos_sin_conductor_ok = [e for e in eventos_sin_conductor if str(e.get("evento", "")).strip().upper() not in ("COMERCIAL", "VACIO")]
     eventos_casi_finales.extend(eventos_sin_conductor_ok)
 
-    # Normalizar paradas consecutivas por conductor (mismo nodo, contiguas/solapadas).
     prioridad_tipo_pre = {"InS": 0, "Desplazamiento": 1, "Vacio": 2, "Comercial": 3, "Parada": 4, "FnS": 9}
+
+    # Regla dura: ninguna Parada larga puede quedar asociada a conductor.
+    # Se transforma en corte explícito FnS -> InS (misma marca de tiempo inicial).
+    eventos_sin_parada_larga: List[Dict[str, Any]] = []
+    for ev in eventos_casi_finales:
+        if str(ev.get("evento", "")).strip().upper() == "PARADA" and ev.get("conductor") not in (None, ""):
+            ini_ev = int(ev.get("_ini", 0) or 0)
+            fin_ev = int(ev.get("_fin", 0) or 0)
+            if (fin_ev - ini_ev) > umbral_parada_larga:
+                nodo_ev = ev.get("origen", "") or ev.get("destino", "") or deposito
+                cid_ev = ev.get("conductor", "")
+                if es_deposito(nodo_ev, deposito):
+                    eventos_sin_parada_larga.append(
+                        _crear_evento_base_dict("FnS", "", cid_ev, ini_ev, ini_ev, deposito, deposito, desc="Fin Jornada (corte parada larga)")
+                    )
+                    eventos_sin_parada_larga.append(
+                        _crear_evento_base_dict("InS", "", cid_ev, ini_ev, fin_ev, deposito, deposito, desc="Inicio Jornada (corte parada larga)")
+                    )
+                else:
+                    # Si no es depósito, evitar FnS/InS fuera de depósito:
+                    # trocear la parada larga en dos paradas <= umbral separadas por un
+                    # marcador de conexión (no-parada) sin duración.
+                    corte = min(fin_ev, ini_ev + umbral_parada_larga)
+                    eventos_sin_parada_larga.append(
+                        _crear_evento_base_dict("Parada", ev.get("bus", ""), cid_ev, ini_ev, corte, nodo_ev, nodo_ev, desc=ev.get("desc", "Parada"))
+                    )
+                    if fin_ev > corte:
+                        eventos_sin_parada_larga.append(
+                            _crear_evento_base_dict("Desplazamiento", "", cid_ev, corte, corte, nodo_ev, nodo_ev, desc="Corte de parada larga")
+                        )
+                        eventos_sin_parada_larga.append(
+                            _crear_evento_base_dict("Parada", ev.get("bus", ""), cid_ev, corte, fin_ev, nodo_ev, nodo_ev, desc=ev.get("desc", "Parada"))
+                        )
+                continue
+        eventos_sin_parada_larga.append(ev)
+    eventos_casi_finales = eventos_sin_parada_larga
+
+    # Cierre de huecos residuales por conductor sin romper reglas:
+    # - Si el hueco es tras InS: extender InS hasta el siguiente evento.
+    # - Si el hueco es antes de FnS: mover FnS al fin del evento previo.
+    # - En medio: insertar Parada de espera.
     eventos_casi_finales.sort(
         key=lambda e: (
             str(e.get("conductor", "")),
             int(e.get("_ini", 0) or 0),
             int(e.get("_fin", 0) or 0),
             prioridad_tipo_pre.get((e.get("evento") or "").strip(), 5),
-            str(e.get("bus", "")),
         )
     )
-    eventos_casi_finales_norm = []
+    cerrados: List[Dict[str, Any]] = []
+    i = 0
+    while i < len(eventos_casi_finales):
+        curr = eventos_casi_finales[i]
+        cerrados.append(curr)
+        if i + 1 >= len(eventos_casi_finales):
+            i += 1
+            continue
+        nxt = eventos_casi_finales[i + 1]
+        if str(curr.get("conductor", "")) != str(nxt.get("conductor", "")):
+            i += 1
+            continue
+        fin_curr = int(curr.get("_fin", 0) or 0)
+        ini_nxt = int(nxt.get("_ini", 0) or 0)
+        if ini_nxt > fin_curr:
+            t_curr = str(curr.get("evento", "")).strip().upper()
+            t_next = str(nxt.get("evento", "")).strip().upper()
+            if t_curr == "INS":
+                curr["_fin"] = ini_nxt
+            elif t_curr == "FNS" and t_next == "INS":
+                # Corte explícito entre jornadas del mismo ID lógico:
+                # no insertar "Espera" entre FnS -> InS.
+                pass
+            elif (
+                (ini_nxt - fin_curr) > umbral_parada_larga
+                and es_deposito(curr.get("destino", ""), deposito)
+                and es_deposito(nxt.get("origen", ""), deposito)
+            ):
+                # Regla operativa: una espera larga en depósito debe representarse
+                # como corte de jornada (FnS/InS), nunca como Parada del conductor.
+                cid = curr.get("conductor", "")
+                if t_curr != "FNS":
+                    cerrados.append(
+                        _crear_evento_base_dict(
+                            "FnS", "", cid, fin_curr, fin_curr, deposito, deposito, desc="Fin Jornada"
+                        )
+                    )
+                if t_next != "INS":
+                    ins_ini = fin_curr
+                    cerrados.append(
+                        _crear_evento_base_dict(
+                            "InS", "", cid, ins_ini, ini_nxt, deposito, deposito, desc="Inicio Jornada"
+                        )
+                    )
+            elif t_next == "FNS":
+                nxt["_ini"] = fin_curr
+                nxt["_fin"] = fin_curr
+            else:
+                # Construcción de origen: si ya venimos en Parada en el mismo nodo,
+                # extender esa misma espera para no crear una nueva parada consecutiva.
+                if (
+                    t_curr == "PARADA"
+                    and get_canonical(curr.get("destino", "")) == get_canonical(nxt.get("origen", ""))
+                ):
+                    curr["_fin"] = ini_nxt
+                else:
+                    cerrados.append(
+                        _crear_evento_base_dict(
+                            "Parada",
+                            "",
+                            curr.get("conductor", ""),
+                            fin_curr,
+                            ini_nxt,
+                            curr.get("destino", ""),
+                            curr.get("destino", ""),
+                            desc="Espera",
+                        )
+                    )
+        i += 1
+    eventos_casi_finales = cerrados
+
+    # Reconciliación final de conectividad:
+    # si dos eventos consecutivos del mismo conductor "empalman" en el tiempo
+    # pero cambian de nodo, insertar conexión explícita (priorizando Desplazamiento
+    # configurado). Evita teletransportes al asignar VACIOs en etapas tardías.
+    def _canon_nodo_auditoria(nodo: Any) -> str:
+        n = str(nodo or "").strip().upper().replace("DEPÓSITO", "DEPOSITO")
+        n = n.replace("DEPOSITO", "").strip()
+        return " ".join(n.split())
+
+    prioridad_reconc = {"InS": 0, "Desplazamiento": 1, "Vacio": 2, "Comercial": 3, "Parada": 4, "FnS": 9}
+    eventos_casi_finales.sort(
+        key=lambda e: (
+            str(e.get("conductor", "")),
+            int(e.get("_ini", 0) or 0),
+            int(e.get("_fin", 0) or 0),
+            prioridad_reconc.get((e.get("evento") or "").strip(), 5),
+        )
+    )
+    reconciliados: List[Dict[str, Any]] = []
     for ev in eventos_casi_finales:
-        if not eventos_casi_finales_norm:
-            eventos_casi_finales_norm.append(ev)
+        if not reconciliados:
+            reconciliados.append(ev)
             continue
-        prev = eventos_casi_finales_norm[-1]
-        if (
-            str(prev.get("conductor", "")) == str(ev.get("conductor", ""))
-            and str(prev.get("evento", "")).strip().upper() == "PARADA"
-            and str(ev.get("evento", "")).strip().upper() == "PARADA"
-            and get_canonical(prev.get("origen", "")) == get_canonical(ev.get("origen", ""))
-            and int(ev.get("_ini", 0) or 0) <= int(prev.get("_fin", 0) or 0) + 1
-        ):
-            prev["_fin"] = max(int(prev.get("_fin", 0) or 0), int(ev.get("_fin", 0) or 0))
-            prev["desc"] = f"Parada en {prev.get('origen', '')}"
+        prev = reconciliados[-1]
+        if str(prev.get("conductor", "")) != str(ev.get("conductor", "")):
+            reconciliados.append(ev)
             continue
-        eventos_casi_finales_norm.append(ev)
-    eventos_casi_finales = eventos_casi_finales_norm
+        fin_prev = int(prev.get("_fin", 0) or 0)
+        ini_ev = int(ev.get("_ini", 0) or 0)
+        if ini_ev != fin_prev:
+            reconciliados.append(ev)
+            continue
+        nodo_prev = _canon_nodo_auditoria(prev.get("destino", ""))
+        nodo_next = _canon_nodo_auditoria(ev.get("origen", ""))
+        if nodo_prev == nodo_next:
+            reconciliados.append(ev)
+            continue
+
+        # Si hay tiempo configurado de traslado, y el evento previo es Parada,
+        # recortar esa espera para insertar el desplazamiento real.
+        t_conn = int(obtener_tiempo_traslado(prev.get("destino", ""), ev.get("origen", ""), fin_prev, gestor) or 0)
+        if t_conn <= 0:
+            hab, tm = _cached_buscar_info_desplazamiento(prev.get("destino", ""), ev.get("origen", ""), fin_prev, gestor)
+            if hab and tm and int(tm) > 0:
+                t_conn = int(tm)
+        ini_conn = fin_prev
+        if t_conn > 0 and str(prev.get("evento", "")).strip().upper() == "PARADA":
+            prev_ini = int(prev.get("_ini", 0) or 0)
+            ini_candidato = fin_prev - t_conn
+            if ini_candidato >= prev_ini:
+                prev["_fin"] = ini_candidato
+                ini_conn = ini_candidato
+
+        reconciliados.append(
+            _crear_evento_base_dict(
+                "Desplazamiento",
+                "",
+                ev.get("conductor", ""),
+                ini_conn,
+                fin_prev,
+                prev.get("destino", ""),
+                ev.get("origen", ""),
+                desc=f"Conexión a {ev.get('origen', '')}",
+            )
+        )
+        reconciliados.append(ev)
+    eventos_casi_finales = reconciliados
+
+    # Ajuste final de jornada por segmento (InS -> FnS):
+    # las etapas tardías (rescate de vacíos/reconciliación) pueden extender algunos
+    # segmentos pocos minutos. Para mantener la regla dura de jornada, se recorta
+    # el inicio de InS del mismo segmento (sin tocar comerciales ni conectores).
+    def _limite_cid_eventos(cid: Any) -> int:
+        return int(
+            (limites_por_conductor or {}).get(
+                cid,
+                (limites_por_conductor or {}).get(str(cid), limite_jornada_final),
+            )
+            or limite_jornada_final
+        )
+
+    prioridad_ajuste = {"InS": 0, "Desplazamiento": 1, "Vacio": 2, "Comercial": 3, "Parada": 4, "FnS": 9}
+    por_conductor_eventos: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+    for ev in eventos_casi_finales:
+        cid = str(ev.get("conductor", "") or "").strip()
+        if cid:
+            por_conductor_eventos[cid].append(ev)
+
+    for cid, lista in por_conductor_eventos.items():
+        lista.sort(
+            key=lambda e: (
+                int(e.get("_ini", 0) or 0),
+                int(e.get("_fin", 0) or 0),
+                prioridad_ajuste.get((e.get("evento") or "").strip(), 5),
+            )
+        )
+        limite_cid = _limite_cid_eventos(cid)
+        inicio_seg = None
+        ins_seg = None
+        for ev in lista:
+            tp = str(ev.get("evento", "")).strip().upper()
+            if tp == "INS":
+                inicio_seg = int(ev.get("_ini", 0) or 0)
+                ins_seg = ev
+                continue
+            if tp == "FNS" and inicio_seg is not None and ins_seg is not None:
+                fin_seg = int(ev.get("_fin", 0) or 0)
+                dur_seg = duracion_minutos(inicio_seg, fin_seg)
+                if dur_seg > limite_cid:
+                    exceso = dur_seg - limite_cid
+                    ins_ini = int(ins_seg.get("_ini", 0) or 0)
+                    ins_fin = int(ins_seg.get("_fin", 0) or 0)
+                    disponible = max(0, ins_fin - ins_ini)
+                    mover = min(exceso, disponible)
+                    if mover > 0:
+                        ins_seg["_ini"] = ins_ini + mover
+                inicio_seg = None
+                ins_seg = None
 
     eventos_finales = []
     for ev in eventos_casi_finales:

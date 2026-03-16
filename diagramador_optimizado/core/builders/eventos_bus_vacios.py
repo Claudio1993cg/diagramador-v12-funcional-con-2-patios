@@ -45,7 +45,7 @@ def _buscar_tiempo_vacio_con_respaldo(
 
     def _directo(o: str, d: str) -> Tuple[Optional[int], int]:
         # Si es exactamente el mismo nodo textual, no hay traslado.
-        # OJO: no forzar 0 para alias depósito<->terminal (ej. AGUIRRE LUCO <-> Deposito Aguirre Luco),
+        # OJO: no forzar 0 para alias depósito<->terminal,
         # porque puede existir tiempo configurado válido (p. ej. 1 min).
         if _canon(o) == _canon(d) and str(o or "").strip().upper() == str(d or "").strip().upper():
             return 0, 0

@@ -8,7 +8,7 @@ más (en cada ronda los turnos ya unidos pueden volver a unirse con otros).
 
 ALGORITMO DE GRAFOS (conductor):
   - Grafo G = (V, E): V = nodos (depósito canónico + paradas), E = aristas solo
-    DESPLAZAMIENTO habilitado (tiempo en minutos). Depósito y alias (ej. JUANITA)
+    DESPLAZAMIENTO habilitado (tiempo en minutos). Depósito y alias configurados
     se normalizan al mismo nodo canónico para evitar falsas inconsistencias.
   - Unir turno A con turno B solo si en G:
     1. canon(nodo_fin_A) == canon(nodo_inicio_B) (mismo nodo, tiempo 0), O
@@ -52,7 +52,12 @@ from diagramador_optimizado.core.engines.fase2_conductores import (
 # ---------------------------------------------------------------------------
 
 def _mismo_grupo_lineas(turno_a: Dict, turno_b: Dict, mapa_viajes: Dict, gestor: GestorDeLogistica) -> bool:
-    """True si los turnos operan en el mismo grupo de líneas o pueden interlinear."""
+    """True si los turnos operan en el mismo grupo de líneas.
+
+    Si hay grupos configurados, el criterio es estricto por grupo (ignorando
+    interlineado global). Si no hay grupos, usa la regla histórica de
+    interlineado del gestor como fallback.
+    """
     def _lineas(t: Dict) -> Set[str]:
         lineas: Set[str] = set()
         for tid, _ in t.get("tareas_con_bus", []):
@@ -66,6 +71,19 @@ def _mismo_grupo_lineas(turno_a: Dict, turno_b: Dict, mapa_viajes: Dict, gestor:
     if not la or not lb:
         return True  # Sin línea definida: permitir unión
 
+    grupos_cfg = getattr(gestor, "grupos_lineas", {}) or {}
+    if grupos_cfg:
+        for li in la:
+            for lj in lb:
+                if li == lj:
+                    return True
+                gi = gestor.obtener_grupo_linea(li)
+                gj = gestor.obtener_grupo_linea(lj)
+                if gi and gj and gi == gj:
+                    return True
+        return False
+
+    # Fallback cuando no hay grupos explícitos.
     for li in la:
         for lj in lb:
             if li == lj or gestor.pueden_interlinear(li, lj):
@@ -83,7 +101,6 @@ def _nodo_inicio_turno(tb: Dict, mapa_viajes: Dict, deposito: str) -> str:
     Regla:
     - Si el primer viaje del turno (en tareas_con_bus) tiene origen explícito,
       se usa SIEMPRE ese origen como nodo de inicio.
-      Ejemplo: si el primer comercial es TORCON->JUANITA, nodo_inicio = TORCON.
     - Solo si no se encuentra ningún viaje con origen definido se usa
       deposito_inicio como fallback.
 
@@ -114,7 +131,7 @@ def _tiempo_arista_grafo(
 ) -> Optional[int]:
     """
     Conectividad del conductor: solo DESPLAZAMIENTO habilitado (no vacío de bus).
-    Usa nodo canónico (depósito y alias, ej. JUANITA = Deposito Juanita) para
+    Usa nodo canónico (depósito y alias configurados) para
     evitar rechazar uniones válidas. Sin arista habilitada retorna None.
     """
     if not origen or not destino:
@@ -1080,7 +1097,7 @@ def resolver_union_conductores(
 
     union_solo_por_deposito: bool = bool(f3_cfg.get("union_solo_por_deposito", True))
     # Regla dura solicitada: Fase 3 siempre restringida a mismo grupo de línea.
-    restringir_mismo_grupo: bool = True
+    restringir_mismo_grupo: bool = bool(f3_cfg.get("restringir_mismo_grupo", True))
 
     print(f"  Límite jornada   : {limite_jornada} min")
     print(f"  Descanso mínimo  : {descanso_min} min")
@@ -1145,38 +1162,40 @@ def resolver_union_conductores(
     # hasta que una ronda no reduzca el número de conductores.
     actuales: List[Dict] = list(turnos_validos)
     ordenes = ["inicio", "fin", "fin_desc", "duracion", "duracion_desc"]
-    max_rondas = max(1, int(f3_cfg.get("max_rondas_union", 1000)))
-    timeout_ortools = float(f3_cfg.get("timeout_ortools_segundos", 90.0))
+    # Defaults más ágiles para ejecución local (configurable por JSON).
+    max_rondas = max(1, int(f3_cfg.get("max_rondas_union", 25)))
+    timeout_ortools = float(f3_cfg.get("timeout_ortools_segundos", 20.0))
     mostrar_rechazos_fase3: bool = bool(f3_cfg.get("mostrar_rechazos_fase3", False))
+    diagnostico_pares_inicial: bool = bool(f3_cfg.get("diagnostico_pares_inicial", False))
     ronda = 0
 
-    # Diagnóstico ronda 0: cuántos pares podrían unirse (para evaluar si las condiciones son demasiado estrictas)
+    # Diagnóstico inicial opcional: puede ser costoso en escenarios grandes.
     n_turnos = len(actuales)
-    total_pares = n_turnos * (n_turnos - 1) // 2
-    pares_validos_count = 0
-    razones_diag: List[str] = []
-    for i in range(min(n_turnos, 500)):  # limitar a 500 turnos para no tardar mucho
-        for j in range(i + 1, min(n_turnos, i + 1 + 300)):  # por cada i, solo hasta 300 j's
-            if _pueden_unirse(
-                actuales[i], actuales[j], mapa_viajes, gestor, limite_jornada, descanso_min,
-                max_cambios_bus, parada_larga_umbral_union=parada_larga_umbral_union,
-                parada_larga_excepcion_depot_min=parada_larga_excepcion_depot_min,
-                union_solo_por_deposito=union_solo_por_deposito,
-                restringir_mismo_grupo=restringir_mismo_grupo,
-                razon_rechazo=razones_diag,
-            ):
-                pares_validos_count += 1
+    if diagnostico_pares_inicial:
+        pares_validos_count = 0
+        razones_diag: List[str] = []
+        for i in range(min(n_turnos, 500)):  # limitar a 500 turnos para no tardar mucho
+            for j in range(i + 1, min(n_turnos, i + 1 + 300)):  # por cada i, solo hasta 300 j's
+                if _pueden_unirse(
+                    actuales[i], actuales[j], mapa_viajes, gestor, limite_jornada, descanso_min,
+                    max_cambios_bus, parada_larga_umbral_union=parada_larga_umbral_union,
+                    parada_larga_excepcion_depot_min=parada_larga_excepcion_depot_min,
+                    union_solo_por_deposito=union_solo_por_deposito,
+                    restringir_mismo_grupo=restringir_mismo_grupo,
+                    razon_rechazo=razones_diag,
+                ):
+                    pares_validos_count += 1
+                if len(razones_diag) > 2000:
+                    break
             if len(razones_diag) > 2000:
                 break
-        if len(razones_diag) > 2000:
-            break
-    muestreo = " (muestreo)" if n_turnos > 500 else ""
-    print(f"  [Fase 3 diagnóstico] Turnos: {n_turnos}. Pares válidos para unir{muestreo}: {pares_validos_count}")
-    if mostrar_rechazos_fase3 and razones_diag:
-        por_razon = Counter(razones_diag)
-        print(f"  [Fase 3 diagnóstico] Motivos de rechazo (muestra):")
-        for msg, n in por_razon.most_common(8):
-            print(f"    {n}x {msg[:85]}{'...' if len(msg) > 85 else ''}")
+        muestreo = " (muestreo)" if n_turnos > 500 else ""
+        print(f"  [Fase 3 diagnóstico] Turnos: {n_turnos}. Pares válidos para unir{muestreo}: {pares_validos_count}")
+        if mostrar_rechazos_fase3 and razones_diag:
+            por_razon = Counter(razones_diag)
+            print(f"  [Fase 3 diagnóstico] Motivos de rechazo (muestra):")
+            for msg, n in por_razon.most_common(8):
+                print(f"    {n}x {msg[:85]}{'...' if len(msg) > 85 else ''}")
 
     rechazos_corto: Optional[List[Tuple[int, str]]] = [] if mostrar_rechazos_fase3 else None
     rechazos_consistencia: Optional[List[str]] = [] if mostrar_rechazos_fase3 else None

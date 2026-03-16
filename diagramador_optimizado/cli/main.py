@@ -5,7 +5,11 @@ import sys
 from typing import Optional, Any, Dict, List, Tuple
 
 from diagramador_optimizado.io.loaders import cargar_config, cargar_salidas_desde_excel
-from diagramador_optimizado.io.config_validator import validar_configuracion, ConfigValidationError
+from diagramador_optimizado.io.config_validator import (
+    validar_configuracion,
+    ConfigValidationError,
+    autocompletar_configuracion,
+)
 from diagramador_optimizado.io.exporters.excel_writer import exportar_resultado_excel
 from diagramador_optimizado.core.domain.logistica import GestorDeLogistica
 from diagramador_optimizado.core.engines.fase1_buses import resolver_diagramacion_buses
@@ -19,6 +23,140 @@ from diagramador_optimizado.core.validaciones_fase import (
     validar_eventos_limite_jornada,
     validar_vacios_con_duracion_valida,
 )
+
+
+def _reutilizar_ids_conductor_exportacion(
+    turnos_seleccionados: List[Dict[str, Any]],
+    todos_eventos: List[Dict[str, Any]],
+    config: Dict[str, Any],
+) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, int]]]:
+    """
+    Reutiliza IDs lógicos de conductor para exportación, manteniendo jornadas separadas.
+    No altera turnos ni límites; solo renumera IDs en eventos para reducir cardinalidad.
+    """
+    f3_cfg = (config or {}).get("fase_3_union_conductores", {}) or {}
+    n_logicos = len(turnos_seleccionados or [])
+    if n_logicos <= 0:
+        return todos_eventos, None
+
+    descanso_min = int(f3_cfg.get("descanso_min_reutilizacion_min", 480) or 480)
+    max_jornadas = int(f3_cfg.get("max_jornadas_por_conductor_exportacion", 2) or 2)
+
+    linea_grupo: Dict[str, str] = {}
+    for grupo, lineas in ((config or {}).get("grupos_lineas") or {}).items():
+        for linea in (lineas or []):
+            ls = str(linea).strip()
+            if ls:
+                linea_grupo[ls] = str(grupo).strip()
+    grupos_por_conductor: Dict[int, frozenset] = {}
+    for ev in (todos_eventos or []):
+        if str(ev.get("evento", "")).strip().upper() != "COMERCIAL":
+            continue
+        cid = ev.get("conductor")
+        try:
+            cid_int = int(cid)
+        except Exception:
+            continue
+        linea = str(ev.get("linea", "") or "").strip()
+        grupo = linea_grupo.get(linea, "__SIN_GRUPO__")
+        grupos_por_conductor.setdefault(cid_int, set()).add(grupo)
+    grupos_por_conductor = {k: frozenset(v) for k, v in grupos_por_conductor.items()}
+
+    def _to_min_local(v: Any) -> int:
+        s = str(v or "").strip()
+        if ":" in s:
+            try:
+                h, m = s.split(":")
+                return int(h) * 60 + int(m)
+            except Exception:
+                return 0
+        try:
+            return int(float(s))
+        except Exception:
+            return 0
+
+    intervalos_por_cid: Dict[int, Tuple[int, int]] = {}
+    for ev in (todos_eventos or []):
+        cid = ev.get("conductor")
+        try:
+            cid_int = int(cid)
+        except Exception:
+            continue
+        ini_ev = _to_min_local(ev.get("inicio", 0))
+        fin_ev = _to_min_local(ev.get("fin", 0))
+        if fin_ev < ini_ev:
+            fin_ev += 1440
+        prev = intervalos_por_cid.get(cid_int)
+        if prev is None:
+            intervalos_por_cid[cid_int] = (ini_ev, fin_ev)
+        else:
+            intervalos_por_cid[cid_int] = (min(prev[0], ini_ev), max(prev[1], fin_ev))
+
+    intervalos: List[Tuple[int, int, int]] = [
+        (ini, fin, cid) for cid, (ini, fin) in intervalos_por_cid.items()
+    ]
+    if len(intervalos) < n_logicos:
+        # Fallback seguro para IDs sin eventos (debería ser raro).
+        for idx, t in enumerate(turnos_seleccionados, start=1):
+            if idx in intervalos_por_cid:
+                continue
+            ini = int(t.get("inicio", 0) or 0)
+            fin = int(t.get("fin", 0) or 0)
+            if fin < ini:
+                fin += 1440
+            intervalos.append((ini, fin, idx))
+    intervalos.sort(key=lambda x: (x[0], x[1], x[2]))
+
+    # Cada bucket representa un conductor físico reutilizable (mismo grupo de líneas).
+    buckets: List[Dict[str, Any]] = []
+    mapping: Dict[int, int] = {}
+    next_cid = 1
+    reusos_hechos = 0
+
+    for ini, fin, logical_id in intervalos:
+        candidato_idx = -1
+        mejor_fin = -1
+        grupos_actual = grupos_por_conductor.get(logical_id, frozenset({"__SIN_GRUPO__"}))
+        for i, b in enumerate(buckets):
+            if int(b["jornadas"]) >= max_jornadas:
+                continue
+            if b.get("grupos") != grupos_actual:
+                continue
+            fin_prev = int(b["fin"])
+            if fin_prev + descanso_min <= ini and fin_prev > mejor_fin:
+                mejor_fin = fin_prev
+                candidato_idx = i
+        if candidato_idx >= 0:
+            b = buckets[candidato_idx]
+            b["fin"] = fin
+            b["jornadas"] = int(b["jornadas"]) + 1
+            cid = int(b["id"])
+            reusos_hechos += 1
+        else:
+            cid = next_cid
+            next_cid += 1
+            buckets.append({"id": cid, "fin": fin, "jornadas": 1, "grupos": grupos_actual})
+        mapping[logical_id] = cid
+
+    eventos_remap: List[Dict[str, Any]] = []
+    for ev in (todos_eventos or []):
+        ev2 = dict(ev)
+        cid_old = ev2.get("conductor")
+        try:
+            cid_int = int(cid_old)
+        except Exception:
+            eventos_remap.append(ev2)
+            continue
+        if cid_int in mapping:
+            ev2["conductor"] = mapping[cid_int]
+        eventos_remap.append(ev2)
+
+    stats = {
+        "logicos": n_logicos,
+        "fisicos": len(set(mapping.values())),
+        "reusos": reusos_hechos,
+    }
+    return eventos_remap, stats
 
 
 def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
@@ -79,6 +217,23 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
         if c:
             por_c[c].append(r)
 
+    # Orden estable por conductor para evitar falsos positivos cuando el Excel
+    # no viene estrictamente ordenado por tiempo/tipo.
+    def _tipo_rank(tp: Any) -> int:
+        t = _norm(tp)
+        if t == "INS":
+            return 0
+        if t == "FNS":
+            return 3
+        if t == "PARADA":
+            return 2
+        return 1
+
+    def _orden_evento_row(r: Tuple[Any, ...]) -> Tuple[int, int, int]:
+        ini = _to_min(r[3])
+        fin = _to_min(r[4])
+        return (ini, fin, _tipo_rank(r[0]))
+
     solapes: List[Any] = []
     huecos: List[Any] = []
     tele: List[Any] = []
@@ -87,6 +242,7 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
     jornada_bad: List[Any] = []
 
     for c, rows in por_c.items():
+        rows = sorted(rows, key=_orden_evento_row)
         if not rows:
             continue
         if _norm(rows[0][0]) != "INS" or _norm(rows[-1][0]) != "FNS":
@@ -100,8 +256,13 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
 
         for i in range(len(rows) - 1):
             a, b = rows[i], rows[i + 1]
+            tipo_a = _norm(a[0])
+            tipo_b = _norm(b[0])
             fin_a = _to_min(a[4])
             ini_b = _to_min(b[3])
+            if tipo_a == "FNS" and tipo_b == "INS":
+                # Se permite hueco entre jornadas del mismo conductor físico.
+                continue
             if ini_b < fin_a:
                 solapes.append((c, a[0], b[0], a[4], b[3]))
             if ini_b > fin_a:
@@ -109,19 +270,31 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
             if _canon_node(a[7]) != _canon_node(b[6]):
                 tele.append((c, a[0], b[0], a[7], b[6], a[4], b[3]))
 
-        ins = [_to_min(r[3]) for r in rows if _norm(r[0]) == "INS"]
-        fns = [_to_min(r[4]) for r in rows if _norm(r[0]) == "FNS"]
-        if ins and fns:
-            ini = min(ins)
-            fin = max(fns)
-            jornada = _dur(ini, fin)
-            lineas = [str(r[9]).strip() for r in rows if _norm(r[0]) == "COMERCIAL" and str(r[9] or "").strip()]
-            grp = ""
-            if lineas:
-                grp = linea_grupo.get(Counter(lineas).most_common(1)[0][0], "")
-            lim = lim_por.get(grp, lim_global)
-            if jornada > lim:
-                jornada_bad.append((c, grp, lim, jornada, jornada - lim))
+        # Validar límite por jornada (cada bloque InS -> FnS), no sobre el span total.
+        ini_j = None
+        lineas_j: List[str] = []
+        for r in rows:
+            tp = _norm(r[0])
+            if tp == "INS":
+                ini_j = _to_min(r[3])
+                lineas_j = []
+                continue
+            if tp == "COMERCIAL":
+                linea_r = str(r[9] or "").strip()
+                if linea_r:
+                    lineas_j.append(linea_r)
+                continue
+            if tp == "FNS" and ini_j is not None:
+                fin_j = _to_min(r[4])
+                jornada = _dur(ini_j, fin_j)
+                grp = ""
+                if lineas_j:
+                    grp = linea_grupo.get(Counter(lineas_j).most_common(1)[0][0], "")
+                lim = lim_por.get(grp, lim_global)
+                if jornada > lim:
+                    jornada_bad.append((c, grp, lim, jornada, jornada - lim))
+                ini_j = None
+                lineas_j = []
 
     ins_mismatch: List[Any] = []
     fns_mismatch: List[Any] = []
@@ -131,6 +304,7 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
         if str(r[0] or "").strip()
     }
     for c, rows in por_c.items():
+        rows = sorted(rows, key=_orden_evento_row)
         if c not in tc:
             continue
         ins = [_to_min(r[3]) for r in rows if _norm(r[0]) == "INS"]
@@ -144,6 +318,7 @@ def _auditar_excel_resultado(path_xlsx: str, config: Dict[str, Any]) -> None:
     parada_post_ins: List[Any] = []
     parada_pre_fns: List[Any] = []
     for c, rows in por_c.items():
+        rows = sorted(rows, key=_orden_evento_row)
         for i in range(len(rows) - 1):
             if _norm(rows[i][0]) == "PARADA" and _norm(rows[i + 1][0]) == "PARADA":
                 paradas_ec.append((c, rows[i][3], rows[i][4], rows[i + 1][3], rows[i + 1][4]))
@@ -258,6 +433,7 @@ def main(
 
     try:
         config = cargar_config(ruta_config)
+        config = autocompletar_configuracion(config)
     except Exception as e:
         print(f"ERROR: No se pudo cargar configuración de forma estricta. {e}")
         return

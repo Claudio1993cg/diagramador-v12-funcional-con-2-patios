@@ -9,6 +9,122 @@ class ConfigValidationError(ValueError):
     """Error específico de validación de configuración."""
 
 
+def autocompletar_configuracion(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Autocompleta estructura mínima para escenarios nuevos sin inventar lógica operativa.
+    - Agrega nodos/depósitos faltantes en catálogos.
+    - Completa matrices de vacíos/desplazamientos faltantes como deshabilitadas.
+    - Completa líneas y límites por grupo faltantes con defaults seguros.
+    """
+    if not isinstance(config, dict):
+        return config
+
+    config.setdefault("nodos", [])
+    config.setdefault("depositos", [])
+    config.setdefault("deposito", "")
+    config.setdefault("paradas", {})
+    config.setdefault("vacios", {})
+    config.setdefault("desplazamientos", {})
+    config.setdefault("lineas", {})
+    config.setdefault("tipos_bus", {})
+    config.setdefault("grupos_lineas", {})
+    config.setdefault("limite_jornada_por_grupo_linea", {})
+
+    # Normalizar nodos/depositos
+    nodos = _nombres_desde_iterable(config.get("nodos") or [])
+    depositos_cfg = config.get("depositos") or []
+    depositos_nombres: List[str] = []
+    if isinstance(depositos_cfg, list):
+        for dep in depositos_cfg:
+            if isinstance(dep, dict):
+                nombre = str(dep.get("nombre", "")).strip()
+                if nombre:
+                    depositos_nombres.append(nombre)
+    deposito_base = str(config.get("deposito", "") or "").strip()
+    if deposito_base:
+        depositos_nombres.append(deposito_base)
+    if not depositos_nombres and nodos:
+        # fallback seguro: usar primer nodo existente como depósito base explícito.
+        depositos_nombres.append(nodos[0])
+    if depositos_nombres:
+        config["deposito"] = depositos_nombres[0]
+
+    # Unificar nodos + depósitos en catálogo
+    todos_nombres = sorted(set(nodos + depositos_nombres))
+    config["nodos"] = todos_nombres
+
+    # Paradas mínimas por nodo (sin tocar valores existentes)
+    paradas = config.get("paradas")
+    if not isinstance(paradas, dict):
+        paradas = {}
+    depositos_set = {d.upper() for d in depositos_nombres}
+    for nodo in todos_nombres:
+        if nodo.upper() in depositos_set:
+            continue
+        paradas.setdefault(nodo, {"min": 5, "max": 120})
+    config["paradas"] = paradas
+
+    # Completar matrices de conectividad sin habilitar por defecto.
+    vacios = config.get("vacios")
+    if not isinstance(vacios, dict):
+        vacios = {}
+    desplaz = config.get("desplazamientos")
+    if not isinstance(desplaz, dict):
+        desplaz = {}
+
+    for origen in todos_nombres:
+        for destino in todos_nombres:
+            if origen == destino:
+                continue
+            key = f"{origen}_{destino}"
+            vacios.setdefault(
+                key,
+                {
+                    "habilitado": False,
+                    "franjas": [],
+                },
+            )
+            desplaz.setdefault(
+                key,
+                {
+                    "habilitado": False,
+                    "tiempo": 0,
+                },
+            )
+    config["vacios"] = vacios
+    config["desplazamientos"] = desplaz
+
+    # Completar líneas faltantes referenciadas por grupos.
+    lineas = config.get("lineas")
+    if not isinstance(lineas, dict):
+        lineas = {}
+    tipos_disponibles = sorted([str(k).strip() for k in (config.get("tipos_bus") or {}).keys() if str(k).strip()]) or ["A", "B", "BE", "BPAL", "C"]
+    grupos = config.get("grupos_lineas")
+    if not isinstance(grupos, dict):
+        grupos = {}
+    for _, lineas_grupo in grupos.items():
+        if not isinstance(lineas_grupo, (list, tuple, set)):
+            continue
+        for linea in lineas_grupo:
+            linea_s = str(linea).strip()
+            if not linea_s:
+                continue
+            lineas.setdefault(linea_s, {"tipos_permitidos": tipos_disponibles})
+    config["lineas"] = lineas
+
+    # Completar límite de jornada por grupo
+    limite_global = int(config.get("limite_jornada", 720) or 720)
+    lj_grupo = config.get("limite_jornada_por_grupo_linea")
+    if not isinstance(lj_grupo, dict):
+        lj_grupo = {}
+    for grupo in grupos.keys():
+        if str(grupo).strip():
+            lj_grupo.setdefault(str(grupo).strip(), limite_global)
+    config["limite_jornada_por_grupo_linea"] = lj_grupo
+
+    return config
+
+
 def _es_entero_no_negativo(valor: Any) -> bool:
     try:
         return int(valor) >= 0
@@ -97,11 +213,15 @@ def validar_configuracion(config: Dict[str, Any]) -> None:
     for campo, checker in (
         ("limite_jornada", _es_entero_positivo),
         ("tiempo_toma", _es_entero_positivo),
-        ("max_buses", _es_entero_positivo),
     ):
         valor = config.get(campo)
         if not checker(valor):
             errores.append(f"'{campo}' debe ser entero positivo (actual: {valor})")
+    # Compatibilidad: max_buses a nivel raíz es opcional.
+    # En configuración moderna el cupo vive en depositos[].max_buses.
+    max_buses_root = config.get("max_buses")
+    if max_buses_root is not None and not _es_entero_positivo(max_buses_root):
+        errores.append(f"'max_buses' debe ser entero positivo si se define (actual: {max_buses_root})")
 
     # Nodos
     nodos = config.get("nodos") or []

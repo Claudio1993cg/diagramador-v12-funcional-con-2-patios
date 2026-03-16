@@ -460,7 +460,7 @@ class GestorDeLogistica:
         if not isinstance(entrada, dict):
             # 1) Buscar coincidencia EXACTA primero en todo el diccionario
             # para evitar que una coincidencia "fuzzy" capture una ruta incorrecta
-            # (ej. AGUIRRE LUCO vs DEPOSITO AGUIRRE LUCO).
+            # (ej. terminal vs depósito con nombre similar).
             for clave_config, valor_config in vacios.items():
                 if not isinstance(valor_config, dict):
                     continue
@@ -483,7 +483,7 @@ class GestorDeLogistica:
                 if len(partes) == 2:
                     origen_config = partes[0].strip().upper()
                     destino_config = partes[1].strip().upper()
-                    # Incluir variantes (ej. LA PIRAMI = LA PIRAMIDE)
+                    # Incluir variantes abreviadas/canonizadas de nodos.
                     o_ok = (origen_config in origen_norm or origen_norm in origen_config or
                             (len(origen_norm) >= 6 and len(origen_config) >= 6 and (origen_norm.startswith(origen_config) or origen_config.startswith(origen_norm))))
                     d_ok = (destino_config in destino_norm or destino_norm in destino_config or
@@ -554,7 +554,7 @@ class GestorDeLogistica:
         return None, 0
 
     def _nodos_coinciden_para_desplaz(self, a: str, b: str) -> bool:
-        """Compara nodos para matching de desplazamientos (ej. LA PIRAMI = LA PIRAMIDE)."""
+        """Compara nodos para matching flexible de desplazamientos."""
         if not a or not b:
             return False
         na, nb = a.strip().upper(), b.strip().upper()
@@ -604,7 +604,7 @@ class GestorDeLogistica:
     def nodo_canonico_para_conectividad(self, nodo: str) -> str:
         """
         Devuelve el nombre canónico del nodo para encadenamiento/conectividad.
-        Depósito y sus alias (ej. JUANITA cuando el depósito es Deposito Juanita)
+        Depósito y sus alias configurados dinámicamente
         se normalizan al nombre del depósito base, para evitar falsos teletransportes.
         """
         if not nodo or not (nodo := str(nodo).strip()):
@@ -624,7 +624,7 @@ class GestorDeLogistica:
         """
         Revisa la configuración de desplazamientos de conductores.
         Usa caché por (origen, destino, minuto) para acelerar búsquedas repetidas.
-        Intenta nombres canónicos de config si el lookup directo falla (ej. LA PIRAMI -> LA PIRAMIDE).
+        Intenta nombres canónicos de config si el lookup directo falla.
         """
         origen_norm = str(origen).strip().upper()
         destino_norm = str(destino).strip().upper()
@@ -635,7 +635,7 @@ class GestorDeLogistica:
         hab, t = self._buscar_info_desplazamiento_cached(origen_norm, destino_norm, minutos_int)
         if hab and t is not None:
             return True, t
-        # Fallback: variantes desde config (LA PIRAMI vs LA PIRAMIDE; LOS TILOS LA PIRAMI -> LOS TILOS)
+        # Fallback: variantes desde configuración (abreviaciones/sufijos).
         nodos_cfg = (self.config or {}).get("nodos", [])
         nombres_dep = self._nombres_depositos() or [self.deposito_base]
         for n in nodos_cfg:
@@ -656,7 +656,7 @@ class GestorDeLogistica:
                 hab2, t2 = self._buscar_info_desplazamiento_cached(o_try, d_try, minutos_int)
                 if hab2 and t2 is not None:
                     return True, t2
-        # Fallback destino: origen del viaje puede ser "LOS TILOS LA PIRAMI"; en config está "LOS TILOS"
+        # Fallback destino: el texto del nodo puede venir con sufijos/abreviaciones.
         for n in nodos_cfg:
             n_upper = (str(n or "").strip().upper())
             if not n_upper or not self._nodos_coinciden_para_desplaz(n_upper, destino_norm):

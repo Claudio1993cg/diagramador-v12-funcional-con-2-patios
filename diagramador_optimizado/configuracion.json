@@ -465,24 +465,24 @@
   },
   "paradas": {
     "AGUIRRE LUCO": {
-      "min": 5,
-      "max": 40
+      "min": 7,
+      "max": 30
     },
     "DORSAL": {
-      "min": 0,
+      "min": 7,
       "max": 20
     },
     "ESCUELA MILITAR": {
-      "min": 0,
+      "min": 7,
       "max": 20
     },
     "LIBERTADORES": {
-      "min": 3,
-      "max": 40
+      "min": 7,
+      "max": 45
     },
     "VESPUCIO": {
-      "min": 3,
-      "max": 40
+      "min": 7,
+      "max": 45
     }
   },
   "puntos_relevo": [
@@ -545,23 +545,23 @@
   "depositos": [
     {
       "nombre": "Deposito Aguirre Luco",
-      "max_buses": 59,
+      "max_buses": 20,
       "permite_recarga": false,
       "posiciones_recarga": 0,
       "flota_por_tipo": {
-        "A": 6,
-        "B": 43,
+        "A": 0,
+        "B": 0,
         "BE": 0,
-        "BPAL": 16,
+        "BPAL": 0,
         "C": 0
       }
     }
   ],
   "flota_por_tipo": {
-    "A": 6,
-    "B": 43,
+    "A": 0,
+    "B": 0,
     "BE": 0,
-    "BPAL": 16,
+    "BPAL": 0,
     "C": 0
   },
   "tipos_conductor": [],
@@ -590,10 +590,11 @@
   },
   "max_inicio_jornada_conductor": "19:00",
   "fase_3_union_conductores": {
-    "union_solo_por_deposito": false,
+    "union_solo_por_deposito": true,
     "parada_larga_umbral_union": 60,
     "parada_larga_excepcion_depot_min": 120,
     "max_rondas_union": 1500,
     "timeout_ortools_segundos": 180
-  }
+  },
+  "respetar_grupos_lineas": true
 }

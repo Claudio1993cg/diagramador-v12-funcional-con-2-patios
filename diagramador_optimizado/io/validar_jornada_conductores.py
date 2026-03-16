@@ -27,7 +27,7 @@ def _nombres_depositos(gestor: Any) -> List[str]:
 def _es_deposito(place: str, gestor: Any) -> bool:
     """True si place es el depósito configurado.
     Usa comparación exacta (case-insensitive) para evitar falsos positivos.
-    'PIE ANDINO' (terminal) ≠ 'DEPOSITO PIE ANDINO' (depósito)."""
+    Un terminal y un depósito con nombres similares no se consideran iguales."""
     if not place or not gestor:
         return False
     p = (place or "").strip().upper()
@@ -53,7 +53,7 @@ def _es_deposito_o_punto_relevo(place: str, gestor: Any) -> bool:
 def _mismo_nodo(a: str, b: str, gestor: Any) -> bool:
     """True si a y b representan el mismo nodo (incl. variantes de depósito).
     Usa comparación exacta (case-insensitive) para evitar falsos positivos entre
-    nodos con nombres similares como 'PIE ANDINO' y 'DEPOSITO PIE ANDINO'."""
+    nodos con nombres similares."""
     if not a and not b:
         return True
     if not a or not b:
@@ -143,7 +143,8 @@ def validar_continuidad_nodos_y_deposito_final(
             if verbose:
                 print(f"  [VALIDACION] {errores[-1]['mensaje']}")
 
-        # REGLA: El evento inmediatamente anterior al FnS debe terminar en depósito o punto de relevo (nunca en no-relevo como LA PIRAMIDE)
+        # REGLA: El evento inmediatamente anterior al FnS debe terminar en depósito
+        # o punto de relevo (nunca en un nodo no habilitado para relevo).
         # Excepción: si el nodo tiene vacío habilitado al depósito, no se considera error (el retorno existe en la red).
         eventos_sin_fns = [e for e in evs_ord if str(e.get("evento", "")).strip().upper() != "FNS"]
         if eventos_sin_fns:
@@ -162,7 +163,7 @@ def validar_continuidad_nodos_y_deposito_final(
                     errores.append({
                         "conductor": cid,
                         "tipo": "evento_final_antes_fns_no_relevo",
-                        "mensaje": f"Conductor {cid}: el evento final antes del FnS termina en '{dest_antes_fns or 'N/A'}' (debe ser depósito o punto de relevo habilitado, no un nodo como LA PIRAMIDE)",
+                        "mensaje": f"Conductor {cid}: el evento final antes del FnS termina en '{dest_antes_fns or 'N/A'}' (debe ser depósito o punto de relevo habilitado)",
                         "evento": evento_antes_fns.get("evento"),
                         "destino": dest_antes_fns,
                     })

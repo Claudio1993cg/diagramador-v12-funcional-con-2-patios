@@ -23,6 +23,7 @@ from diagramador_optimizado.core.builders.eventos_bus_recarga_runtime import (
     _calcular_recarga_disponible,
     _agregar_evento_recarga,
     _planificar_recarga_si_requiere,
+    _requiere_recarga,
 )
 from diagramador_optimizado.core.builders.eventos_bus_vacios import (
     _construir_cache_vacio,
@@ -1266,7 +1267,7 @@ def _construir_eventos_bus(
                 
                 # Si llegamos aquí, el siguiente viaje es desde OTRO lugar o el tiempo es menor al mínimo
                 # REGLA DE OPTIMIZACIÓN: Antes de forzar vía depósito, verificar si hay vacío directo disponible
-                # Esto evita vacíos cruzados innecesarios (ej: LOS TILOS -> Depósito -> LA PIRAMIDE cuando existe LOS TILOS -> LA PIRAMIDE)
+                # Esto evita vacíos cruzados innecesarios cuando existe conexión directa entre nodos.
                 _log_verbose(
                     f"Gap inválido entre viajes {viaje.get('id') or viaje.get('_tmp_id') or '?'} y {siguiente.get('id') or siguiente.get('_tmp_id') or '?'} (bus). "
                     f"Motivo: {motivo}. "

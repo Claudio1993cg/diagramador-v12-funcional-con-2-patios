@@ -266,6 +266,20 @@ class OptimizationService:
             Diccionario con resultado de la operación
         """
         with self._lock:
+            # Guardarraíl: si existe un hilo vivo, bloquear nuevos inicios aunque
+            # un reset previo haya dejado _optimization_running en False.
+            hilo_vivo_global = self._optimization_thread is not None and self._optimization_thread.is_alive()
+            if hilo_vivo_global:
+                self._optimization_running = True
+                mensaje = "Ya hay una optimizacion en ejecucion"
+                try:
+                    mensaje = str(mensaje).encode('ascii', errors='replace').decode('ascii')
+                except Exception:
+                    mensaje = "Ya hay una optimizacion en ejecucion"
+                return {
+                    "success": False,
+                    "message": mensaje
+                }
             # Si el flag está True pero no hay hilo vivo (hilo terminó, crasheó o nunca se guardó), permitir ejecutar
             if self._optimization_running:
                 hilo_vivo = self._optimization_thread is not None and self._optimization_thread.is_alive()
@@ -380,6 +394,10 @@ class OptimizationService:
         Útil cuando el hilo terminó con error o quedó bloqueado y la interfaz sigue mostrando "en ejecución".
         """
         with self._lock:
+            # Nunca resetear mientras el hilo real sigue vivo: evita ejecuciones solapadas.
+            if self._optimization_thread is not None and self._optimization_thread.is_alive():
+                logger.warning("Reset de optimizacion ignorado: hay un hilo de optimizacion en ejecucion.")
+                return
             self._optimization_running = False
             self._optimization_thread = None
 
@@ -515,10 +533,9 @@ class OptimizationService:
                     directorio_base = cwd_actual
                 logger.info(f"Modo desarrollo: directorio base = {directorio_base} (raíz del proyecto)")
             
-            # Ejecutar el diagramador en el mismo proceso (web conectada al motor).
-            # En desarrollo y en ejecutable: importar y llamar main() directamente para evitar
-            # subprocesos, scripts temporales y problemas de rutas/codificación.
-            ejecutar_en_proceso = True
+            # Ejecutar SIEMPRE en subproceso aislado para evitar estado compartido
+            # entre corridas web (caches/módulos en memoria) y mantener paridad con CLI.
+            ejecutar_en_proceso = False
             if ejecutar_en_proceso:
                 logger.info("=" * 80)
                 logger.info("EJECUTANDO DIAGRAMADOR EN PROCESO (web -> diagramador_optimizado)")
@@ -856,6 +873,7 @@ except Exception as e:
                 logger.info("--- Iniciando captura de salida en tiempo real ---")
                 
                 # Leer salida en tiempo real
+                salida_stream: list[str] = []
                 while True:
                     line = process.stdout.readline()
                     if not line and process.poll() is not None:
@@ -863,6 +881,7 @@ except Exception as e:
                     if line:
                         line_text = line.strip()
                         if line_text:
+                            salida_stream.append(line_text)
                             # Limpiar caracteres Unicode antes de loguear
                             try:
                                 line_clean = line_text.encode('ascii', errors='replace').decode('ascii')
@@ -1072,7 +1091,28 @@ except Exception as e:
                     if not error_principal:
                         error_principal = lineas_error[-1] if lineas_error else "Error desconocido"
                 else:
-                    error_principal = "Error desconocido (sin detalles en STDERR)"
+                    # stderr puede venir vacío porque se redirige a stdout en streaming.
+                    error_principal = None
+                    try:
+                        for linea in reversed(salida_stream):
+                            l = (linea or "").strip()
+                            if not l:
+                                continue
+                            if (
+                                "Traceback" in l
+                                or "ValueError" in l
+                                or "RuntimeError" in l
+                                or "ERROR" in l
+                                or "Error" in l
+                            ):
+                                error_principal = l
+                                break
+                        if not error_principal and salida_stream:
+                            error_principal = salida_stream[-1]
+                    except Exception:
+                        error_principal = None
+                    if not error_principal:
+                        error_principal = "Error desconocido (sin detalles en STDERR/STDOUT)"
                 
                 mensaje_error = f"La optimización falló antes de generar resultados: {error_principal}"
                 logger.error(f"Mensaje de error final para el usuario: {mensaje_error}")

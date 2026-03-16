@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from werkzeug.datastructures import ImmutableMultiDict
 
 from ..utils.logging_utils import logger
+from diagramador_optimizado.io.config_validator import autocompletar_configuracion, validar_configuracion, ConfigValidationError
 
 TIPOS_BUS_DISPONIBLES: List[str] = ["A", "B", "BE", "BPAL", "C"]
 
@@ -232,6 +233,13 @@ class ConfigService:
             
             # Procesar tipos de conductor
             self._process_tipos_conductor(form_data)
+
+            # Autocompletar estructura para escenarios nuevos y validar antes de guardar.
+            self._config_data = autocompletar_configuracion(self._config_data)
+            try:
+                validar_configuracion(self._config_data)
+            except ConfigValidationError as e:
+                return {"success": False, "message": f"Configuración inválida: {str(e)}"}
             
             # Guardar configuración
             if self.save_config():
@@ -318,7 +326,7 @@ class ConfigService:
                 
                 deposito_dict = {
                     "nombre": nombre_dep,
-                    "max_buses": _to_int(datos_dep.get("max_buses"), 0),
+                    "max_buses": _to_int(datos_dep.get("max_buses"), 200),
                     "permite_recarga": datos_dep.get("permite_recarga") is not None,
                     "posiciones_recarga": _to_int(datos_dep.get("posiciones_recarga"), 0),
                     "flota_por_tipo": flota_dep,
@@ -482,6 +490,7 @@ class ConfigService:
         if interlineado_global:
             self._config_data["grupos_lineas"] = {}
             self._config_data["limite_jornada_por_grupo_linea"] = {}
+            self._config_data["respetar_grupos_lineas"] = False
             return
         
         # Procesar grupos de líneas
@@ -535,6 +544,8 @@ class ConfigService:
         
         self._config_data["grupos_lineas"] = grupos_lineas
         self._config_data["limite_jornada_por_grupo_linea"] = limites_por_grupo
+        # Cuando hay grupos definidos, forzar respeto estricto de grupo en fases operativas.
+        self._config_data["respetar_grupos_lineas"] = bool(grupos_lineas)
 
     def _process_puntos_relevo(self, form_data: ImmutableMultiDict) -> None:
         """Procesa puntos de relevo desde el formulario (checkboxes puntos_relevo_NODO)."""
